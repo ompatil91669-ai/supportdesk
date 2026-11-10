@@ -23,4 +23,11 @@ describe("generateTicketId", () => {
     const id = generateTicketId();
     expect(typeof id).toBe("string");
   });
+    test("should generate unique ticket IDs across multiple calls", () => {
+    const ids = Array.from({ length: 20 }, () => generateTicketId());
+
+    const uniqueIds = new Set(ids);
+
+    expect(uniqueIds.size).toBe(20);
+  });
 });
