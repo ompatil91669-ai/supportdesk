@@ -79,4 +79,16 @@ describe("csvToJson", () => {
 
     expect(csvToJson(csv)).toHaveLength(3);
   });
-});
+  test("should handle commas inside quoted values", () => {
+    const csv =
+      'id,name,email,status\n1,"Patil, Om",om@gmail.com,Open';
+
+    expect(csvToJson(csv)).toEqual([
+      {
+        id: "1",
+        name: "Patil, Om",
+        email: "om@gmail.com",
+        status: "Open"
+      }
+    ]);
+  });});

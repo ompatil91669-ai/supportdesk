@@ -33,3 +33,4 @@ desktop.ini
 # Temporary files
 *.tmp
 *.temp
+apps/api/ticket-cli/output.json

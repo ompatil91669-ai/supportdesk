@@ -120,6 +120,9 @@ id,name,email,status
 1,Om,om@gmail.com,Open
 2,Rahul,rahul@gmail.com,Closed
 ```
+id,name,email,status
+1,"Patil, Om",om@gmail.com,Open
+2,Rahul,rahul@gmail.com,Closed
 
 ### Validation Rules
 
@@ -129,7 +132,7 @@ id,name,email,status
 - Email addresses must have a valid basic format.
 - Status must be Open, Closed, or Pending.
 - Empty CSV input is rejected.
-
+- Quoted CSV values containing commas are supported.
 ### Run Tests
 
 ```bash

@@ -19,5 +19,8 @@
     "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "csv-parse": "^7.0.3"
   }
 }
