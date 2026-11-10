@@ -181,3 +181,23 @@ Learned to debug systematically instead of changing code randomly.
 - Missing input file handling: Verified.
 - Missing command arguments: Verified.
 - Ticket ID uniqueness test: Passed.
+
+## The 6-Box Prompt
+
+The 6-Box Prompt is a structured way to give an AI clear instructions:
+
+1. **Context:** Relevant background about the project or task.
+2. **Goal:** The result the prompt should achieve.
+3. **Constraints:** Requirements, boundaries, or actions to avoid.
+4. **Examples:** Sample inputs or outputs that clarify expectations.
+5. **Output Format:** How the response should be organized.
+6. **Checks:** How to verify that the result is correct and complete.
+
+### SupportDesk Example
+
+- **Context:** The SupportDesk Ticket CLI is a TypeScript tool that converts CSV ticket records to JSON.
+- **Goal:** Plan how to improve validation for CSV ticket records.
+- **Constraints:** Keep the existing CLI commands working. Do not expose real credentials or edit files before approval.
+- **Examples:** A row with a valid email and `Open` status should pass; a row with an invalid email should be rejected.
+- **Output Format:** Provide a short implementation plan, followed by the files that would need changes.
+- **Checks:** Include Jest tests for valid and invalid rows, and identify the test and build commands to run.
