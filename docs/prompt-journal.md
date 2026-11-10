@@ -66,3 +66,28 @@ Learned the importance of project documentation, Git ignore rules, and keeping s
 - Learned how to create and verify feature branches.
 - Understood the purpose of README.md, .gitignore, and .env.example.
 - Learned how to use AI for guidance and verify its suggestions.
+## TypeScript CLI Development and Testing
+
+**Project:** SupportDesk
+
+**Tasks Completed:**
+- Created a TypeScript CLI application.
+- Implemented unique Ticket ID generation.
+- Implemented CSV to JSON conversion.
+- Configured Jest for TypeScript testing.
+- Created 8 Jest test cases.
+- Built the application successfully.
+- Tested both CLI commands successfully.
+
+**Debugging Practice:**
+- Introduced an intentional bug by changing the Ticket ID prefix.
+- Ran Jest and identified 2 failed tests.
+- Fixed the bug by restoring the correct prefix.
+- Reran Jest and confirmed all 8 tests passed.
+
+**Learning:**
+- TypeScript development
+- CLI commands
+- Jest testing
+- Debugging and error fixing
+- CSV and JSON handling
