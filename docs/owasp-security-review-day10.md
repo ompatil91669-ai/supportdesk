@@ -59,3 +59,19 @@ The documented controls have been implemented and
 the listed tests completed.
 
 This review does not represent a full security audit.
+## Dependency Security Audit
+
+Command: npm audit --omit=dev
+
+Findings:
+- 4 high-severity vulnerabilities reported.
+- Affected dependencies include deepmerge-ts and effect.
+- These are associated with the Prisma dependency tree.
+
+Action:
+- npm audit fix --force was not executed because it would
+  upgrade Prisma 6 to Prisma 7, introducing breaking changes.
+- Dependency vulnerabilities remain unresolved and require
+  a separately tested upgrade.
+
+Status: Identified and documented; remediation pending.
