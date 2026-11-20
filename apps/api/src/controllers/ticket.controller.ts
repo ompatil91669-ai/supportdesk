@@ -1,9 +1,11 @@
+
 import { Request, Response, NextFunction } from "express";
 import * as ticketService from "../services/ticket.service";
 import { successResponse } from "../utils/response";
 import {
   createTicketSchema,
   updateTicketSchema,
+  ticketQuerySchema,
 } from "../validators/ticket.validator";
 import { AppError } from "../middleware/errorHandler";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
@@ -22,7 +24,6 @@ function getTicketId(req: Request): string {
   return id;
 }
 
-// Get authenticated user
 function getAuthenticatedUser(req: AuthenticatedRequest) {
   if (!req.user) {
     throw new AppError(
@@ -35,7 +36,6 @@ function getAuthenticatedUser(req: AuthenticatedRequest) {
   return req.user;
 }
 
-// GET /tickets
 export async function getTickets(
   req: AuthenticatedRequest,
   res: Response,
@@ -44,15 +44,54 @@ export async function getTickets(
   try {
     const user = getAuthenticatedUser(req);
 
-    const tickets = await ticketService.getAllTickets(user);
+    const parsed = ticketQuerySchema.safeParse(req.query);
 
-    successResponse(res, tickets);
+    if (!parsed.success) {
+      throw new AppError(
+        400,
+        "VALIDATION_ERROR",
+        "Invalid ticket query parameters"
+      );
+    }
+
+    const {
+      page,
+      limit,
+      status,
+      priority,
+      assigneeId,
+      search,
+      sortBy,
+      sortOrder,
+    } = parsed.data;
+
+    const result = await ticketService.getAllTickets(
+      user,
+      page,
+      limit,
+      status,
+      priority,
+      assigneeId,
+      search,
+      sortBy,
+      sortOrder
+    );
+
+    res.status(200).json({
+      data: result.tickets,
+      error: null,
+      meta: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    });
   } catch (error) {
     next(error);
   }
 }
 
-// GET /tickets/:id
 export async function getTicket(
   req: AuthenticatedRequest,
   res: Response,
@@ -72,7 +111,6 @@ export async function getTicket(
   }
 }
 
-// POST /tickets
 export async function postTicket(
   req: AuthenticatedRequest,
   res: Response,
@@ -102,7 +140,6 @@ export async function postTicket(
   }
 }
 
-// PATCH /tickets/:id
 export async function patchTicket(
   req: AuthenticatedRequest,
   res: Response,

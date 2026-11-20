@@ -1,0 +1,146 @@
+import { Role, Ticket, TicketPriority, TicketStatus } from "database";
+import * as ticketRepository from "../src/repositories/ticket.repository";
+import * as ticketService from "../src/services/ticket.service";
+
+jest.mock("../src/repositories/ticket.repository", () => ({
+  findAllTickets: jest.fn(),
+  findTicketById: jest.fn(),
+  createTicket: jest.fn(),
+  updateTicket: jest.fn(),
+}));
+
+const customer = { id: "customer-1", role: Role.Customer };
+const ticket: Ticket = {
+  id: "TKT-1001",
+  name: "Jamie Example",
+  email: "jamie@example.test",
+  status: TicketStatus.Open,
+  priority: TicketPriority.High,
+  userId: customer.id,
+  assigneeId: null,
+  createdAt: new Date("2026-01-01T00:00:00.000Z"),
+  updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+};
+
+describe("ticket service", () => {
+  const repository = jest.mocked(ticketRepository);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("uses the default query arguments for ticket listings", async () => {
+    const result = {
+      tickets: [ticket],
+      total: 1,
+      page: 1,
+      limit: 10,
+      totalPages: 1,
+    };
+    repository.findAllTickets.mockResolvedValue(result);
+
+    await expect(ticketService.getAllTickets(customer)).resolves.toEqual(result);
+    expect(repository.findAllTickets).toHaveBeenCalledWith(
+      customer,
+      1,
+      10,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "createdAt",
+      "desc"
+    );
+  });
+
+  it("forwards every validated filter and sort option", async () => {
+    repository.findAllTickets.mockResolvedValue({
+      tickets: [ticket],
+      total: 1,
+      page: 2,
+      limit: 5,
+      totalPages: 1,
+    });
+
+    await ticketService.getAllTickets(
+      customer,
+      2,
+      5,
+      TicketStatus.Open,
+      TicketPriority.High,
+      "00000000-0000-4000-8000-000000000001",
+      "jamie",
+      "updatedAt",
+      "asc"
+    );
+
+    expect(repository.findAllTickets).toHaveBeenCalledWith(
+      customer,
+      2,
+      5,
+      TicketStatus.Open,
+      TicketPriority.High,
+      "00000000-0000-4000-8000-000000000001",
+      "jamie",
+      "updatedAt",
+      "asc"
+    );
+  });
+
+  it("returns an accessible ticket", async () => {
+    repository.findTicketById.mockResolvedValue(ticket);
+
+    await expect(
+      ticketService.getTicketById(ticket.id, customer)
+    ).resolves.toBe(ticket);
+    expect(repository.findTicketById).toHaveBeenCalledWith(ticket.id, customer);
+  });
+
+  it("reports an inaccessible or missing ticket as not found", async () => {
+    repository.findTicketById.mockResolvedValue(null);
+
+    await expect(
+      ticketService.getTicketById(ticket.id, customer)
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      code: "TICKET_NOT_FOUND",
+    });
+  });
+
+  it("creates a ticket for the authenticated owner", async () => {
+    const input = {
+      id: "TKT-1002",
+      name: "Taylor Example",
+      email: "taylor@example.test",
+    };
+    repository.createTicket.mockResolvedValue(ticket);
+
+    await expect(ticketService.addTicket(input, customer)).resolves.toBe(ticket);
+    expect(repository.createTicket).toHaveBeenCalledWith(input, customer);
+  });
+
+  it("updates an accessible ticket", async () => {
+    const update = { status: TicketStatus.Closed };
+    repository.updateTicket.mockResolvedValue(ticket);
+
+    await expect(
+      ticketService.editTicket(ticket.id, update, customer)
+    ).resolves.toBe(ticket);
+    expect(repository.updateTicket).toHaveBeenCalledWith(
+      ticket.id,
+      update,
+      customer
+    );
+  });
+
+  it("reports an inaccessible or missing ticket on update", async () => {
+    repository.updateTicket.mockResolvedValue(null);
+
+    await expect(
+      ticketService.editTicket(ticket.id, { status: TicketStatus.Closed }, customer)
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      code: "TICKET_NOT_FOUND",
+    });
+  });
+});

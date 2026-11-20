@@ -278,3 +278,69 @@ Learned the difference between authentication and authorization, secure password
 - Commit: e7e7509
 - GitHub Push: Successful
 - Pull Request: #3 created
+
+---
+
+## Entry 10: Querying, OpenAPI Documentation and Automated Tests
+
+**Date:** 21 November 2026
+
+**Context:**
+Completing SupportDesk Week 2 Day 5 (Overall Day 11) on the existing
+`feat/day11-querying-tests` branch. Ticket querying and Comments API changes
+were already present in the working tree, so the work preserved them and
+focused on the empty Swagger specification, automated tests, and verification.
+
+**Prompt Used:**
+"Complete the remaining SupportDesk Day 11 requirements in the existing
+project. Preserve Day 9 MVC and Day 10 security, review existing query and
+comment functionality, document actual endpoints at `/docs`, add Jest service
+tests with mocked repositories and Supertest integration tests against an
+isolated test database, demonstrate test-first development for two functions,
+and report verified test counts and coverage. Do not modify backups or real
+credentials, run destructive database commands, push, merge, or open a PR."
+
+**AI Response Summary:**
+AI inspected the current branch and uncommitted changes before editing. It
+created an OpenAPI document based on the actual Express routes and validators,
+served it through Swagger UI, configured Jest and Supertest, added isolated
+database guarding, and wrote service and HTTP tests.
+
+**Test-First Development:**
+
+1. **`createSwaggerDocument()`** — Wrote tests asserting the complete route set
+   and JWT bearer scheme first. The initial Jest run failed because the
+   implementation module did not yet exist. Added the OpenAPI document and
+   reran the suite successfully.
+2. **`getIsolatedTestDatabaseUrl()`** — Wrote tests first for accepting a
+   test-named PostgreSQL database and rejecting missing or ordinary database
+   URLs. The initial run failed because the helper did not yet exist. Added the
+   explicit URL and database-name guard, then reran the tests successfully.
+
+The existing ticket query validator also passed boundary tests for defaults
+and unsafe pagination values; no unnecessary change was made to that
+pre-existing implementation.
+
+**My Verification and Corrections:**
+- Confirmed the branch is `feat/day11-querying-tests`; preserved pre-existing
+  Day 11 edits and schema backups.
+- TypeScript API build passed before and after the additions.
+- Added Jest service tests with ticket, comment, and user repositories mocked.
+- Added database-backed Supertest cases for ticket queries, ownership,
+  authentication, comments, and role-based comment visibility. They require
+  `TEST_DATABASE_URL` and reject database names without a distinct `test`
+  segment. A separate local `supportdesk_test_day11` database was created and
+  migrated; development records were not used for tests or modified.
+- Verified Swagger UI and its JSON specification with HTTP requests. `/docs`
+  redirects to `/docs/`, where the UI renders successfully.
+- `npm run test:coverage` passed the configured service-layer coverage gate.
+  `npm test` passed all 49 tests, including all 17 database-backed integration
+  tests; service coverage was 100% for statements, branches, functions, and
+  lines.
+- No push, merge, commit, or pull request was performed.
+
+**Learning:**
+Learned to keep OpenAPI contracts tied to real routes and validators, test
+service business rules independently from Prisma, and require explicit
+test-database configuration instead of silently reusing development
+credentials or data.

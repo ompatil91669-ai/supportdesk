@@ -1,7 +1,9 @@
+
 import { PrismaClient, Role, Prisma } from "database";
 import {
   CreateTicketInput,
   UpdateTicketInput,
+  TicketQueryInput,
 } from "../validators/ticket.validator";
 
 const prisma = new PrismaClient();
@@ -11,20 +13,78 @@ interface TicketAccess {
   role: Role;
 }
 
-function ownershipFilter(user: TicketAccess): Prisma.TicketWhereInput {
-  return user.role === Role.Agent ? {} : { userId: user.id };
+function ownershipFilter(
+  user: TicketAccess
+): Prisma.TicketWhereInput {
+  return user.role === Role.Agent
+    ? {}
+    : { userId: user.id };
 }
 
-// Agent: all tickets | Customer: own tickets only
-export async function findAllTickets(user: TicketAccess) {
-  return prisma.ticket.findMany({
-    where: ownershipFilter(user),
-    orderBy: { createdAt: "desc" },
-  });
+// Day 11: Pagination, Filtering, Search and Sorting
+export async function findAllTickets(
+  user: TicketAccess,
+  page = 1,
+  limit = 10,
+  status?: TicketQueryInput["status"],
+  priority?: TicketQueryInput["priority"],
+  assigneeId?: TicketQueryInput["assigneeId"],
+  search?: TicketQueryInput["search"],
+  sortBy: TicketQueryInput["sortBy"] = "createdAt",
+  sortOrder: TicketQueryInput["sortOrder"] = "desc"
+) {
+  const where: Prisma.TicketWhereInput = {
+    ...ownershipFilter(user),
+
+    ...(status ? { status } : {}),
+    ...(priority ? { priority } : {}),
+    ...(assigneeId ? { assigneeId } : {}),
+
+    ...(search
+      ? {
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+            {
+              email: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [tickets, total] = await prisma.$transaction([
+    prisma.ticket.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+
+  return {
+    tickets,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 }
 
-// Prevent customers from reading other users' tickets
-export async function findTicketById(id: string, user: TicketAccess) {
+export async function findTicketById(
+  id: string,
+  user: TicketAccess
+) {
   return prisma.ticket.findFirst({
     where: {
       id,
@@ -33,7 +93,6 @@ export async function findTicketById(id: string, user: TicketAccess) {
   });
 }
 
-// Assign new tickets to the authenticated user
 export async function createTicket(
   data: CreateTicketInput,
   user: TicketAccess
@@ -46,7 +105,6 @@ export async function createTicket(
   });
 }
 
-// Enforce ownership directly in the database update condition
 export async function updateTicket(
   id: string,
   data: UpdateTicketInput,
