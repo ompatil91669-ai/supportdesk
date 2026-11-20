@@ -201,3 +201,37 @@ The 6-Box Prompt is a structured way to give an AI clear instructions:
 - **Examples:** A row with a valid email and `Open` status should pass; a row with an invalid email should be rejected.
 - **Output Format:** Provide a short implementation plan, followed by the files that would need changes.
 - **Checks:** Include Jest tests for valid and invalid rows, and identify the test and build commands to run.
+
+---
+
+## Entry 8: API Skeleton and MVC in Practice
+
+**Date:** 20 November 2026
+
+**Context:** Building the SupportDesk REST API using Express, TypeScript, Prisma, and PostgreSQL with a structured MVC architecture.
+
+**Prompt Used:**
+"Help me build a SupportDesk API step by step using Express and TypeScript. Follow MVC architecture with separate routes, controllers, services, and repositories. Use Zod for request validation, environment variable validation, safe request logging, centralized error handling, and a consistent API response format."
+
+**AI Response Summary:**
+AI helped organize the API implementation into separate layers. Created health and ticket endpoints, connected Prisma Client, added request validation, and implemented centralized error handling.
+
+**My Verification and Corrections:**
+Verified the API using PowerShell and Postman Web. Tested GET, POST, and PATCH endpoints. Verified 400 validation errors, 404 ticket-not-found errors, and safe 500 internal server errors. Successfully generated Prisma Client and completed the TypeScript build.
+
+**Learning:**
+Learned how MVC architecture separates application responsibilities. Understood how routes, controllers, services, and repositories work together. Learned request validation, centralized error handling, Prisma integration, and API testing.
+
+**Additional Verification:**
+- API Server: Successfully started on port 5000.
+- GET /health: Passed.
+- GET /tickets: Passed.
+- GET /tickets/:id: Passed.
+- POST /tickets: Passed.
+- PATCH /tickets/:id: Passed.
+- Invalid request (400): Passed.
+- Missing ticket (404): Passed.
+- Unexpected server error (500): Passed.
+- TypeScript build: Successful.
+- Postman Collection: Created and imported successfully.
+- DELETE endpoint: Not implemented; pending approval.

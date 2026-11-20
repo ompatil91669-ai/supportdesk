@@ -1,0 +1,89 @@
+
+{
+  "info": {
+    "name": "SupportDesk API - Day 9",
+    "description": "API testing collection for SupportDesk MVC implementation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:5000/health"
+      }
+    },
+    {
+      "name": "Get All Tickets",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:5000/tickets"
+      }
+    },
+    {
+      "name": "Get Single Ticket",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:5000/tickets/TKT-SEED-001"
+      }
+    },
+    {
+      "name": "Create Ticket",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"TKT-API-TEST-002\",\n  \"name\": \"Postman Test Customer\",\n  \"email\": \"postman@example.com\",\n  \"status\": \"Open\"\n}"
+        },
+        "url": "http://localhost:5000/tickets"
+      }
+    },
+    {
+      "name": "Update Ticket",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Updated Postman Customer\",\n  \"status\": \"Pending\"\n}"
+        },
+        "url": "http://localhost:5000/tickets/TKT-API-TEST-002"
+      }
+    },
+    {
+      "name": "Invalid Ticket - 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"TKT-INVALID-002\",\n  \"name\": \"Invalid Customer\",\n  \"email\": \"wrong-email\"\n}"
+        },
+        "url": "http://localhost:5000/tickets"
+      }
+    },
+    {
+      "name": "Missing Ticket - 404",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:5000/tickets/TKT-NOT-EXIST"
+      }
+    }
+  ]
+}
