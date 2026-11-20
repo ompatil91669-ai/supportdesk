@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,6 +12,12 @@ enum TicketStatus {
   Open
   Closed
   Pending
+}
+
+enum TicketPriority {
+  Low
+  Medium
+  High
 }
 
 enum Role {
@@ -27,20 +34,50 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tickets Ticket[]
+  tickets         Ticket[]  @relation("TicketOwner")
+  assignedTickets Ticket[]  @relation("TicketAssignee")
+  comments        Comment[]
 }
 
 model Ticket {
-  id        String       @id
-  name      String
-  email     String
-  status    TicketStatus @default(Open)
-  userId    String?
-  user      User?        @relation(fields: [userId], references: [id])
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id       String         @id
+  name     String
+  email    String
+  status   TicketStatus   @default(Open)
+  priority TicketPriority @default(Medium)
+
+  userId String?
+  user   User? @relation("TicketOwner", fields: [userId], references: [id])
+
+  assigneeId String?
+  assignee   User? @relation("TicketAssignee", fields: [assigneeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  comments Comment[]
 
   @@index([email])
   @@index([status])
+  @@index([priority])
   @@index([userId])
+  @@index([assigneeId])
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  content    String
+  isInternal Boolean  @default(false)
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ticketId])
+  @@index([authorId])
 }
