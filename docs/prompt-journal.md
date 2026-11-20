@@ -235,3 +235,46 @@ Learned how MVC architecture separates application responsibilities. Understood 
 - TypeScript build: Successful.
 - Postman Collection: Created and imported successfully.
 - DELETE endpoint: Not implemented; pending approval.
+
+
+---
+
+## Entry 9: Authentication, Authorization and API Security
+
+**Date:** 20 November 2026
+
+**Context:**
+Implementing authentication and authorization for the SupportDesk API using Express, TypeScript, Prisma, PostgreSQL, bcrypt and JWT.
+
+**Prompt Used:**
+"Help me implement secure registration and login for the SupportDesk API. Use bcrypt for password hashing, JWT for authentication, and role-based access control for Customers and Agents. Customers should access only their own tickets, while Agents can access all tickets. Add Helmet, CORS, login rate limiting, and verify API security."
+
+**AI Response Summary:**
+AI helped implement registration and login, password hashing, JWT authentication, role-based access control, ticket ownership restrictions, Helmet, CORS and login rate limiting.
+
+**My Verification and Corrections:**
+- Verified customer registration and login.
+- Tested invalid credentials (401).
+- Verified JWT authentication.
+- Tested customer ticket ownership restrictions.
+- Verified Agent access to tickets.
+- Tested Helmet security headers.
+- Tested allowed and blocked CORS origins.
+- Verified login rate limiting (429).
+- Fixed missing rate limiter middleware in the login route.
+- Successfully completed TypeScript build.
+- Reviewed three OWASP security areas.
+
+**Learning:**
+Learned the difference between authentication and authorization, secure password hashing, JWT verification, role-based access control, API security middleware, and rate limiting.
+
+**Security Review:**
+- A01 Broken Access Control
+- A07 Authentication Failures
+- A05 Security Misconfiguration
+
+**Git Verification:**
+- Branch: feat/day10-auth-security
+- Commit: e7e7509
+- GitHub Push: Successful
+- Pull Request: #3 created
