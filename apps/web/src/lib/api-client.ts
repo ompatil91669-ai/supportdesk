@@ -1,0 +1,122 @@
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  tokenType: "Bearer";
+  expiresIn: number;
+  user: User;
+}
+
+export interface ApiResponse<T> {
+  data: T | null;
+  error: {
+    code: string;
+    message: string;
+  } | null;
+  meta: Record<string, unknown>;
+}
+
+export class ApiError extends Error {
+  public status: number;
+  public code: string;
+
+  constructor(
+    status: number,
+    code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+if (!API_BASE_URL) {
+  throw new Error("VITE_API_BASE_URL is not configured");
+}
+
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
+export async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers = new Headers(options.headers);
+
+  headers.set("Content-Type", "application/json");
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${API_BASE_URL.replace(/\/$/, "")}${endpoint}`,
+      {
+        ...options,
+        headers,
+      }
+    );
+  } catch {
+    throw new ApiError(
+      0,
+      "NETWORK_ERROR",
+      "Cannot connect to the server. Please try again."
+    );
+  }
+
+  let result: ApiResponse<T>;
+
+  try {
+    result = (await response.json()) as ApiResponse<T>;
+  } catch {
+    throw new ApiError(
+      response.status,
+      "INVALID_RESPONSE",
+      "Unexpected server response."
+    );
+  }
+
+  if (!response.ok || result.error) {
+    if (response.status === 401 && accessToken) {
+      setAccessToken(null);
+    }
+
+    throw new ApiError(
+      response.status,
+      result.error?.code ?? "API_ERROR",
+      result.error?.message ?? "Something went wrong."
+    );
+  }
+
+  if (result.data === null) {
+    throw new ApiError(
+      response.status,
+      "EMPTY_RESPONSE",
+      "Server returned no data."
+    );
+  }
+
+  return result.data;
+}
+
+export function loginApi(email: string, password: string) {
+  return apiRequest<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
