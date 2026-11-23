@@ -16,12 +16,18 @@ export interface Ticket {
   updatedAt: string;
 }
 
+export interface AssignableAgent {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface TicketComment {
   id: string;
   content: string;
   isInternal: boolean;
   ticketId: string;
-  authorId: string;
+  authorId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,6 +128,20 @@ export function changeTicketStatus(
   return apiRequest<Ticket>(`/tickets/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+export function getAssignableAgents(): Promise<AssignableAgent[]> {
+  return apiRequest<AssignableAgent[]>("/users/agents");
+}
+
+export function assignTicket(
+  id: string,
+  assigneeId: string | null
+): Promise<Ticket> {
+  return apiRequest<Ticket>(`/tickets/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ assigneeId }),
   });
 }
 

@@ -15,6 +15,7 @@ export const updateTicketSchema = z
     email: z.email().optional(),
     status: z.enum(["Open", "Closed", "Pending"]).optional(),
     priority: z.enum(["Low", "Medium", "High"]).optional(),
+    assigneeId: z.uuid().nullable().optional(),
   })
   .refine(
     (data) => Object.keys(data).length > 0,

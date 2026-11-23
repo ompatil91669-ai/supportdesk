@@ -16,7 +16,7 @@ interface TicketAccess {
 function ownershipFilter(
   user: TicketAccess
 ): Prisma.TicketWhereInput {
-  return user.role === Role.Agent
+  return user.role === Role.Agent || user.role === Role.Admin
     ? {}
     : { userId: user.id };
 }

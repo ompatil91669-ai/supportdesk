@@ -29,11 +29,15 @@ export async function addComment(
     );
   }
 
-  if (data.isInternal && user.role !== Role.Agent) {
+  if (
+    data.isInternal &&
+    user.role !== Role.Agent &&
+    user.role !== Role.Admin
+  ) {
     throw new AppError(
       403,
       "FORBIDDEN",
-      "Only agents can create internal comments"
+      "Only agents and admins can create internal comments"
     );
   }
 

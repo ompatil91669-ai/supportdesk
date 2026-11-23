@@ -33,7 +33,7 @@ export async function findCommentsByTicketId(
   return prisma.comment.findMany({
     where: {
       ticketId,
-      ...(user.role === Role.Agent
+      ...(user.role === Role.Agent || user.role === Role.Admin
         ? {}
         : { isInternal: false }),
     },

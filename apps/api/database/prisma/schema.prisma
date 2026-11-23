@@ -23,6 +23,7 @@ enum TicketPriority {
 enum Role {
   Customer
   Agent
+  Admin
 }
 
 model User {
@@ -72,8 +73,8 @@ model Comment {
   ticketId String
   ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
-  authorId String
-  author   User @relation(fields: [authorId], references: [id])
+  authorId String?
+  author   User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

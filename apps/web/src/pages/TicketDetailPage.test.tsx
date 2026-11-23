@@ -9,16 +9,22 @@ const {
   mockUseTicket,
   mockUseTicketComments,
   mockUseChangeTicketStatus,
+  mockUseAssignableAgents,
+  mockUseAssignTicket,
   mockUseAddTicketComment,
   mockChangeStatus,
+  mockAssignTicket,
   mockAddComment,
 } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockUseTicket: vi.fn(),
   mockUseTicketComments: vi.fn(),
   mockUseChangeTicketStatus: vi.fn(),
+  mockUseAssignableAgents: vi.fn(),
+  mockUseAssignTicket: vi.fn(),
   mockUseAddTicketComment: vi.fn(),
   mockChangeStatus: vi.fn(),
+  mockAssignTicket: vi.fn(),
   mockAddComment: vi.fn(),
 }));
 
@@ -30,6 +36,8 @@ vi.mock("../features/tickets/hooks/useTickets", () => ({
   useTicket: mockUseTicket,
   useTicketComments: mockUseTicketComments,
   useChangeTicketStatus: mockUseChangeTicketStatus,
+  useAssignableAgents: mockUseAssignableAgents,
+  useAssignTicket: mockUseAssignTicket,
   useAddTicketComment: mockUseAddTicketComment,
 }));
 
@@ -60,10 +68,15 @@ function renderTicketDetail() {
   );
 }
 
-function setupTicketPage(role: "Agent" | "Customer") {
+function setupTicketPage(role: "Agent" | "Customer" | "Admin") {
   mockUseAuth.mockReturnValue({
     user: {
-      id: role === "Agent" ? "agent-1" : "customer-1",
+      id:
+        role === "Agent"
+          ? "agent-1"
+          : role === "Admin"
+            ? "admin-1"
+            : "customer-1",
       name: role,
       email: `${role.toLowerCase()}@example.test`,
       role,
@@ -81,6 +94,19 @@ function setupTicketPage(role: "Agent" | "Customer") {
   });
   mockUseChangeTicketStatus.mockReturnValue({
     mutate: mockChangeStatus,
+    isPending: false,
+    isError: false,
+  });
+  mockUseAssignableAgents.mockReturnValue({
+    data: [
+      { id: "agent-1", name: "Agent One", email: "one@example.test" },
+      { id: "agent-2", name: "Agent Two", email: "two@example.test" },
+    ],
+    isLoading: false,
+    isError: false,
+  });
+  mockUseAssignTicket.mockReturnValue({
+    mutate: mockAssignTicket,
     isPending: false,
     isError: false,
   });
@@ -106,7 +132,7 @@ describe("Ticket detail page", () => {
 
     await user.type(screen.getByLabelText("Add a comment"), "Investigating");
     await user.click(
-      screen.getByLabelText("Internal note (visible to agents only)")
+      screen.getByLabelText("Internal note (visible to agents and admins)")
     );
     await user.click(screen.getByRole("button", { name: "Send comment" }));
     expect(mockAddComment).toHaveBeenCalledWith(
@@ -122,13 +148,30 @@ describe("Ticket detail page", () => {
 
     expect(screen.queryByLabelText("Change ticket status")).toBeNull();
     expect(
-      screen.queryByLabelText("Internal note (visible to agents only)")
+      screen.queryByLabelText("Internal note (visible to agents and admins)")
     ).toBeNull();
 
     await user.type(screen.getByLabelText("Add a comment"), "I need help");
     await user.click(screen.getByRole("button", { name: "Send comment" }));
     expect(mockAddComment).toHaveBeenCalledWith(
       { content: "I need help", isInternal: false },
+      expect.objectContaining({ onSuccess: expect.any(Function) })
+    );
+  });
+
+  it("lets admins assign tickets to agents", async () => {
+    const user = userEvent.setup();
+    setupTicketPage("Admin");
+    renderTicketDetail();
+
+    await user.selectOptions(
+      screen.getByLabelText("Assign ticket to agent"),
+      "agent-2"
+    );
+    await user.click(screen.getByRole("button", { name: "Save assignment" }));
+
+    expect(mockAssignTicket).toHaveBeenCalledWith(
+      "agent-2",
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
   });

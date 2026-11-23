@@ -1,0 +1,9 @@
+.git
+.vscode
+**/node_modules
+**/dist
+**/coverage
+**/*.backup
+**/.env
+**/.env.*
+!**/.env.example

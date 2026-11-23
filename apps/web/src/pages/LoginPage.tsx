@@ -46,13 +46,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-10 sm:px-8">
+    <main className="login-screen relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-8">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-blue-600/30 blur-3xl" />
         <div className="absolute -bottom-48 -right-32 h-[32rem] w-[32rem] rounded-full bg-fuchsia-600/25 blur-3xl" />
       </div>
 
-      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-white shadow-2xl shadow-blue-950/40 lg:grid-cols-[1fr_1.05fr]">
+      <div className="login-card relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-white lg:grid-cols-[1fr_1.05fr]">
         <section className="relative hidden min-h-[680px] flex-col justify-between overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-700 to-violet-800 p-10 text-white lg:flex">
           <div aria-hidden="true" className="absolute inset-0 opacity-30">
             <div className="absolute -right-20 top-28 h-72 w-72 rounded-full border-[40px] border-white/20" />
@@ -138,7 +138,7 @@ export default function LoginPage() {
                     placeholder="you@example.com"
                     aria-invalid={!!errors.email}
                     aria-describedby={errors.email ? "email-error" : undefined}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-950 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                     {...register("email", {
                       required: "Email is required.",
                       pattern: {
@@ -165,7 +165,7 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     aria-invalid={!!errors.password}
                     aria-describedby={errors.password ? "password-error" : undefined}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-950 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                     {...register("password", {
                       required: "Password is required.",
                     })}

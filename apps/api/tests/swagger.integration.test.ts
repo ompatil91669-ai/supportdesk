@@ -17,6 +17,9 @@ describe("Swagger documentation", () => {
       "/tickets",
       "/tickets/{id}",
       "/tickets/{id}/comments",
+      "/users",
+      "/users/agents",
+      "/users/{id}",
     ]);
   });
 });
