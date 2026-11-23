@@ -20,6 +20,7 @@ app.use(helmet());
 // Allow requests from approved frontend origins
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:5174",
 ];
 
 app.use(

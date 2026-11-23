@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     expiryTimer.current = setTimeout(() => {
       logout();
     }, result.expiresIn * 1000);
+
   }
 
   return (
