@@ -254,6 +254,28 @@ describeWithTestDatabase("SupportDesk API integration", () => {
     expect(response.body.meta.total).toBe(3);
   });
 
+  it("allows agents to change ticket status and forbids customers", async () => {
+    const customerResponse = await request(app)
+      .patch(`/tickets/${ticketOne}`)
+      .set("Authorization", `Bearer ${customerToken}`)
+      .send({ status: TicketStatus.Closed })
+      .expect(403);
+
+    expect(customerResponse.body.error.code).toBe("FORBIDDEN");
+    expect(
+      (await prisma.ticket.findUniqueOrThrow({ where: { id: ticketOne } }))
+        .status
+    ).toBe(TicketStatus.Open);
+
+    const agentResponse = await request(app)
+      .patch(`/tickets/${ticketOne}`)
+      .set("Authorization", `Bearer ${agentToken}`)
+      .send({ status: TicketStatus.Pending })
+      .expect(200);
+
+    expect(agentResponse.body.data.status).toBe(TicketStatus.Pending);
+  });
+
   it("creates comments with the authenticated author, not the supplied author", async () => {
     const response = await request(app)
       .post(`/tickets/${ticketOne}/comments`)

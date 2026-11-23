@@ -71,57 +71,53 @@ export default function TicketCreatePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-100 via-emerald-50 to-cyan-50 p-4 sm:p-8">
-      <div className="mx-auto max-w-2xl space-y-5">
-        <Link to="/dashboard" className="inline-flex items-center gap-2 font-semibold text-emerald-800 underline">
+    <main className="page-main">
+      <div className="page-stack create-ticket-layout">
+        <Link to="/dashboard" className="text-link">
           ← Back to dashboard
         </Link>
 
-        <section className="overflow-hidden rounded-3xl border border-white bg-white shadow-xl shadow-emerald-950/5">
-          <div className="bg-gradient-to-r from-emerald-700 via-teal-600 to-cyan-600 p-6 text-white sm:p-8">
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-100">
-            Customer support
-          </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight">
-            Create a support ticket
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-emerald-50">
-            Tell us what you need help with. Your ticket will be linked to your
-            account.
-          </p>
+        <section className="surface-card create-ticket-card">
+          <div className="create-ticket-heading">
+            <p className="page-kicker">Customer support</p>
+            <h1>Create a support ticket</h1>
+            <p>
+              Tell us what you need help with. Your ticket will be linked to your
+              account.
+            </p>
           </div>
 
-          <form className="space-y-4 p-6 sm:p-8" onSubmit={submitTicket}>
-            <label className="grid gap-1 text-sm font-medium">
-              Name
+          <form className="ticket-create-form" onSubmit={submitTicket}>
+            <label className="field">
+              <span>Name</span>
               <input
                 aria-label="Name"
                 value={customer.name}
                 readOnly
-                className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600"
+                className="control-input"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium">
-              Email
+            <label className="field">
+              <span>Email</span>
               <input
                 aria-label="Email"
                 type="email"
                 value={customer.email}
                 readOnly
-                className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600"
+                className="control-input"
               />
             </label>
 
-            <label className="grid gap-1 text-sm font-medium">
-              Priority
+            <label className="field">
+              <span>Priority</span>
               <select
                 aria-label="Priority"
                 value={priority}
                 onChange={(event) =>
                   setPriority(event.target.value as TicketPriority)
                 }
-                className="rounded-xl border border-slate-200 bg-white p-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                className="control-input"
               >
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
@@ -129,8 +125,8 @@ export default function TicketCreatePage() {
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm font-medium">
-              Describe your issue
+            <label className="field">
+              <span>Describe your issue</span>
               <textarea
                 aria-label="Describe your issue"
                 value={description}
@@ -138,12 +134,12 @@ export default function TicketCreatePage() {
                 rows={5}
                 required
                 maxLength={2000}
-                className="rounded-xl border border-slate-200 bg-white p-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                className="control-input"
               />
             </label>
 
             {error && (
-              <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+              <p role="alert" className="notice notice-error">
                 {error}
               </p>
             )}
@@ -151,7 +147,7 @@ export default function TicketCreatePage() {
             {createdTicketId && (
               <Link
                 to={`/tickets/${encodeURIComponent(createdTicketId)}`}
-                className="inline-block font-semibold text-emerald-800 underline"
+                className="text-link"
               >
                 Open created ticket
               </Link>
@@ -162,7 +158,7 @@ export default function TicketCreatePage() {
               disabled={
                 isSubmitting || Boolean(createdTicketId) || !description.trim()
               }
-              className="rounded-xl bg-gradient-to-r from-emerald-700 to-teal-600 px-5 py-3 font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:-translate-y-0.5 disabled:opacity-50"
+              className="button button-primary"
             >
               {isSubmitting
                 ? "Creating..."

@@ -5,6 +5,8 @@ import {
 } from "../features/tickets/api/tickets";
 import {
   useAddTicketComment,
+  useAssignableAgents,
+  useAssignTicket,
   useChangeTicketStatus,
   useTicket,
   useTicketComments,
@@ -19,14 +21,18 @@ export default function TicketDetailPage() {
   const ticketQuery = useTicket(id);
   const commentsQuery = useTicketComments(id);
   const changeStatus = useChangeTicketStatus(id);
+  const isAdmin = user?.role === "Admin";
+  const isStaff = user?.role === "Agent" || isAdmin;
+  const agentsQuery = useAssignableAgents(isAdmin);
+  const assignTicket = useAssignTicket(id);
   const addComment = useAddTicketComment(id);
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus | "">("");
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [isInternal, setIsInternal] = useState(false);
-  const isAgent = user?.role === "Agent";
   const ticket = ticketQuery.data;
   const comments = commentsQuery.data ?? [];
-  const visibleComments = isAgent
+  const visibleComments = isStaff
     ? comments
     : comments.filter((comment) => !comment.isInternal);
 
@@ -36,7 +42,7 @@ export default function TicketDetailPage() {
     if (!trimmedContent) return;
 
     addComment.mutate(
-      { content: trimmedContent, isInternal: isAgent && isInternal },
+      { content: trimmedContent, isInternal: isStaff && isInternal },
       {
         onSuccess: () => {
           setContent("");
@@ -48,8 +54,8 @@ export default function TicketDetailPage() {
 
   if (ticketQuery.isLoading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-cyan-50 p-6">
-        <p role="status" className="mx-auto max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
+      <main className="page-main">
+        <p role="status" className="empty-state">
           Loading ticket...
         </p>
       </main>
@@ -58,14 +64,14 @@ export default function TicketDetailPage() {
 
   if (ticketQuery.isError || !ticket) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-cyan-50 p-6">
-        <div role="alert" className="mx-auto max-w-4xl rounded-2xl bg-rose-50 p-6 text-rose-800">
-          <p className="text-red-700">
+      <main className="page-main">
+        <div role="alert" className="notice notice-error">
+          <p>
             {ticketQuery.error instanceof Error
               ? ticketQuery.error.message
               : "Unable to load this ticket."}
           </p>
-          <Link to="/tickets" className="mt-4 inline-block text-blue-700 underline">
+          <Link to="/tickets" className="text-link">
             Back to tickets
           </Link>
         </div>
@@ -74,13 +80,13 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-cyan-50 p-4 sm:p-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <Link to="/tickets" className="inline-flex items-center gap-2 font-semibold text-indigo-700 underline hover:text-indigo-950">
+    <main className="page-main">
+      <div className="page-stack ticket-detail-layout">
+        <Link to="/tickets" className="text-link">
           ← Back to tickets
         </Link>
 
-        <section className="rounded-3xl border border-white bg-white p-6 shadow-xl shadow-indigo-950/5 sm:p-8">
+        <section className="surface-card ticket-summary-card">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-600">Support request</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
             Ticket {ticket.id}
@@ -102,9 +108,18 @@ export default function TicketDetailPage() {
               <dt className="font-bold uppercase tracking-wide text-slate-500">Status</dt>
               <dd>{ticket.status}</dd>
             </div>
+            {isAdmin && (
+              <div>
+                <dt className="font-bold uppercase tracking-wide text-slate-500">Assigned agent</dt>
+                <dd>
+                  {agentsQuery.data?.find((agent) => agent.id === ticket.assigneeId)?.name
+                    ?? (ticket.assigneeId ? "Assigned agent" : "Unassigned")}
+                </dd>
+              </div>
+            )}
           </dl>
 
-          {isAgent && (
+          {isStaff && (
             <form
               className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-violet-100 bg-violet-50/70 p-4"
               onSubmit={(event) => {
@@ -150,9 +165,65 @@ export default function TicketDetailPage() {
               )}
             </form>
           )}
+
+          {isAdmin && (
+            <form
+              className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const nextAssigneeId =
+                  selectedAssigneeId ?? ticket.assigneeId ?? "";
+                if (nextAssigneeId === (ticket.assigneeId ?? "")) return;
+                assignTicket.mutate(nextAssigneeId || null, {
+                  onSuccess: () => setSelectedAssigneeId(null),
+                });
+              }}
+            >
+              <label className="grid gap-1 text-sm font-medium">
+                Assign to agent
+                <select
+                  aria-label="Assign ticket to agent"
+                  value={selectedAssigneeId ?? ticket.assigneeId ?? ""}
+                  onChange={(event) => setSelectedAssigneeId(event.target.value)}
+                  disabled={agentsQuery.isLoading || agentsQuery.isError}
+                  className="min-w-64 rounded-xl border border-sky-200 bg-white p-2.5 outline-none focus:ring-4 focus:ring-sky-100 disabled:opacity-50"
+                >
+                  <option value="">Unassigned</option>
+                  {(agentsQuery.data ?? []).map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name} ({agent.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="submit"
+                disabled={
+                  assignTicket.isPending ||
+                  agentsQuery.isLoading ||
+                  agentsQuery.isError ||
+                  (selectedAssigneeId ?? ticket.assigneeId ?? "") ===
+                    (ticket.assigneeId ?? "")
+                }
+                className="rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 px-4 py-2.5 font-bold text-white shadow-md shadow-sky-500/20 disabled:opacity-50"
+              >
+                {assignTicket.isPending ? "Saving..." : "Save assignment"}
+              </button>
+              {agentsQuery.isError && (
+                <p role="alert" className="text-sm text-red-700">
+                  {agentsQuery.error.message}
+                </p>
+              )}
+              {assignTicket.isError && (
+                <p role="alert" className="text-sm text-red-700">
+                  {assignTicket.error.message}
+                </p>
+              )}
+            </form>
+          )}
         </section>
 
-        <section className="rounded-3xl border border-white bg-white/90 p-6 shadow-xl shadow-slate-900/5 backdrop-blur sm:p-8">
+        <section className="surface-card conversation-card">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-600">Conversation</p>
           <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Comments</h2>
           {commentsQuery.isLoading ? (
@@ -185,7 +256,11 @@ export default function TicketDetailPage() {
                   )}
                   <p className="whitespace-pre-wrap">{comment.content}</p>
                   <p className="mt-2 text-xs text-slate-500">
-                    {comment.authorId === ticket.userId ? "Customer" : "Agent"} ·{" "}
+                    {!comment.authorId
+                      ? "Former user"
+                      : comment.authorId === ticket.userId
+                        ? "Customer"
+                        : "Support team"} ·{" "}
                     {new Date(comment.createdAt).toLocaleString()}
                   </p>
                 </li>
@@ -206,14 +281,14 @@ export default function TicketDetailPage() {
                 className="rounded-xl border border-slate-200 bg-white p-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
               />
             </label>
-            {isAgent && (
+            {isStaff && (
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={isInternal}
                   onChange={(event) => setIsInternal(event.target.checked)}
                 />
-                Internal note (visible to agents only)
+                Internal note (visible to agents and admins)
               </label>
             )}
             <button

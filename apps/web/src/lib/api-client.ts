@@ -1,8 +1,10 @@
+export type UserRole = "Customer" | "Agent" | "Admin";
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
 }
 
 export interface LoginResponse {

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTickets } from "../features/tickets/hooks/useTickets";
@@ -13,182 +12,168 @@ export default function TicketListPage() {
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
 
-  const { data, isLoading, isFetching, isError, error, refetch } =
-    useTickets({
-      page,
-      limit: 10,
-      search: search.trim() || undefined,
-      status: status || undefined,
-      priority: priority || undefined,
-    });
+  const { data, isLoading, isFetching, isError, error, refetch } = useTickets({
+    page,
+    limit: 10,
+    search: search.trim() || undefined,
+    status: status || undefined,
+    priority: priority || undefined,
+  });
 
   const tickets = data?.data ?? [];
   const totalPages = data?.meta.totalPages ?? 0;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-violet-50 p-4 sm:p-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <main className="page-main">
+      <div className="page-stack">
+        <section className="page-heading">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-600">
-              Support workspace
-            </p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">
-              Support Tickets
-            </h1>
-            <p className="mt-2 text-sm text-slate-600">
-              View and manage support requests.
+            <p className="page-kicker">Support workspace</p>
+            <h1>Support tickets</h1>
+            <p className="page-description">
+              Search, review, and follow up on support requests.
             </p>
           </div>
+          <span className="total-pill">{data?.meta.total ?? "—"} total</span>
+        </section>
 
-          <Link
-            to="/dashboard"
-            className="rounded-xl bg-slate-900 px-4 py-2.5 font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-indigo-900"
-          >
-            Dashboard
-          </Link>
-        </div>
-
-        <section className="mb-6 grid gap-4 rounded-3xl border border-white bg-white/90 p-5 shadow-xl shadow-slate-900/5 backdrop-blur md:grid-cols-3">
-          <input
-            aria-label="Search tickets"
-            type="search"
-            placeholder="Search by name or email"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            className="rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-          />
-
-          <select
-            aria-label="Filter by status"
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value as TicketStatus | "");
-              setPage(1);
-            }}
-            className="rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-          >
-            <option value="">All Statuses</option>
-            <option value="Open">Open</option>
-            <option value="Pending">Pending</option>
-            <option value="Closed">Closed</option>
-          </select>
-
-          <select
-            aria-label="Filter by priority"
-            value={priority}
-            onChange={(event) => {
-              setPriority(event.target.value as TicketPriority | "");
-              setPage(1);
-            }}
-            className="rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-          >
-            <option value="">All Priorities</option>
-            <option value="Low">Low</option>
-            <option value="Medium">Medium</option>
-            <option value="High">High</option>
-          </select>
+        <section className="surface-card filter-card" aria-label="Ticket filters">
+          <label className="filter-field">
+            <span>Search</span>
+            <input
+              aria-label="Search tickets"
+              type="search"
+              placeholder="Name, email, or ticket ID"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
+          </label>
+          <label className="filter-field">
+            <span>Status</span>
+            <select
+              aria-label="Filter by status"
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value as TicketStatus | "");
+                setPage(1);
+              }}
+            >
+              <option value="">All statuses</option>
+              <option value="Open">Open</option>
+              <option value="Pending">Pending</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>Priority</span>
+            <select
+              aria-label="Filter by priority"
+              value={priority}
+              onChange={(event) => {
+                setPriority(event.target.value as TicketPriority | "");
+                setPage(1);
+              }}
+            >
+              <option value="">All priorities</option>
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
+          </label>
         </section>
 
         {isLoading ? (
-          <p role="status" className="rounded-2xl bg-white p-6 shadow-sm">
-            Loading tickets...
-          </p>
+          <p role="status" className="empty-state">Loading tickets…</p>
         ) : isError ? (
-          <div role="alert" className="rounded-2xl bg-rose-50 p-6 text-rose-800">
-            <p className="text-red-700">
-              {error instanceof Error
-                ? error.message
-                : "Unable to load tickets."}
-            </p>
-            <button
-              onClick={() => void refetch()}
-              className="mt-3 rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white"
-            >
-              Try Again
+          <div role="alert" className="notice notice-error">
+            <span>{error instanceof Error ? error.message : "Unable to load tickets."}</span>
+            <button className="button button-secondary" onClick={() => void refetch()}>
+              Try again
             </button>
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto rounded-3xl border border-white bg-white shadow-xl shadow-slate-900/5">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gradient-to-r from-indigo-700 to-blue-600 text-white">
-                  <tr>
-                    <th className="p-4">Ticket ID</th>
-                    <th className="p-4">Name</th>
-                    <th className="p-4">Email</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4">Priority</th>
-                    <th className="p-4">Created</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {tickets.map((ticket) => (
-                    <tr key={ticket.id} className="border-t border-slate-100 transition hover:bg-indigo-50/50">
-                      <td className="p-4 font-medium">
-                        <Link
-                          to={`/tickets/${encodeURIComponent(ticket.id)}`}
-                          className="font-semibold text-indigo-700 underline decoration-indigo-200 underline-offset-4 hover:text-indigo-950"
-                        >
-                          {ticket.id}
-                        </Link>
-                      </td>
-                      <td className="p-4">{ticket.name}</td>
-                      <td className="p-4">{ticket.email}</td>
-                      <td className="p-4">
-                        <span className="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-800">
-                          {ticket.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">
-                          {ticket.priority}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        {new Date(ticket.createdAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {tickets.length === 0 && (
-                <p className="p-8 text-center text-slate-500">
-                  No tickets match these filters.
-                </p>
-              )}
+          <section className="surface-card ticket-table-card">
+            <div className="section-heading">
+              <div>
+                <p className="page-kicker">Ticket queue</p>
+                <h2>Requests</h2>
+              </div>
+              {isFetching && <span className="updating-indicator">Updating…</span>}
             </div>
-
-            <div className="mt-5 flex items-center justify-between gap-4">
-              <p className="text-sm text-slate-600">
-                Page {page} of {totalPages || 1}
-                {isFetching ? " · Updating..." : ""}
+            {tickets.length === 0 ? (
+              <p className="empty-state">No tickets match these filters.</p>
+            ) : (
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Ticket</th>
+                      <th scope="col">Customer</th>
+                      <th scope="col">Email</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Priority</th>
+                      <th scope="col">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tickets.map((ticket) => (
+                      <tr key={ticket.id}>
+                        <td>
+                          <Link
+                            to={`/tickets/${encodeURIComponent(ticket.id)}`}
+                            className="ticket-link"
+                            aria-label={`Open ticket ${ticket.id}`}
+                          >
+                            {ticket.id}
+                          </Link>
+                        </td>
+                        <td className="table-strong">{ticket.name}</td>
+                        <td>{ticket.email}</td>
+                        <td>
+                          <span className={`status-tag status-${ticket.status.toLowerCase()}`}>
+                            {ticket.status}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`priority-tag priority-${ticket.priority.toLowerCase()}`}>
+                            {ticket.priority}
+                          </span>
+                        </td>
+                        <td>{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="pagination-bar">
+              <p>
+                Page <strong>{page}</strong> of <strong>{totalPages || 1}</strong>
+                {data && <span> · {data.meta.total} results</span>}
               </p>
-
-              <div className="flex gap-2">
+              <div className="row-actions">
                 <button
+                  className="button button-secondary"
+                  aria-label="Previous page"
                   disabled={page <= 1 || isFetching}
                   onClick={() => setPage((current) => current - 1)}
-                  className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-indigo-900 disabled:opacity-40"
                 >
-                  Previous
+                  ← Previous
                 </button>
-
                 <button
+                  className="button button-secondary"
+                  aria-label="Next page"
                   disabled={page >= totalPages || isFetching}
                   onClick={() => setPage((current) => current + 1)}
-                  className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-indigo-900 disabled:opacity-40"
                 >
-                  Next
+                  Next →
                 </button>
               </div>
             </div>
-          </>
+          </section>
         )}
       </div>
     </main>

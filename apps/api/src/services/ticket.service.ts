@@ -2,6 +2,7 @@
 import * as ticketRepository from "../repositories/ticket.repository";
 import { AppError } from "../middleware/errorHandler";
 import { Role } from "@prisma/client";
+import * as userRepository from "../repositories/user.repository";
 import {
   CreateTicketInput,
   UpdateTicketInput,
@@ -67,12 +68,38 @@ export async function editTicket(
   data: UpdateTicketInput,
   user: TicketAccess
 ) {
-  if (data.status !== undefined && user.role !== Role.Agent) {
+  if (
+    data.status !== undefined &&
+    user.role !== Role.Agent &&
+    user.role !== Role.Admin
+  ) {
     throw new AppError(
       403,
       "FORBIDDEN",
-      "Only agents can change ticket status"
+      "Only agents and admins can change ticket status"
     );
+  }
+
+  if ("assigneeId" in data) {
+    if (user.role !== Role.Admin) {
+      throw new AppError(
+        403,
+        "FORBIDDEN",
+        "Only admins can assign tickets"
+      );
+    }
+
+    if (
+      data.assigneeId !== null &&
+      data.assigneeId !== undefined &&
+      !(await userRepository.findAgentById(data.assigneeId))
+    ) {
+      throw new AppError(
+        400,
+        "INVALID_ASSIGNEE",
+        "Tickets can only be assigned to an existing agent"
+      );
+    }
   }
 
   const ticket = await ticketRepository.updateTicket(id, data, user);

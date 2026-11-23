@@ -144,3 +144,35 @@ npm test
 ```bash
 npm run build
 ```
+
+## Run the API with Docker
+
+1. Copy `.env.example` to `.env` and replace the local-only PostgreSQL password
+   and JWT secret placeholders. Do not commit `.env`.
+2. Start the API and PostgreSQL:
+
+   ```bash
+   docker compose up --build
+   ```
+
+   The API applies pending migrations at startup. PostgreSQL data is kept in the
+   `supportdesk-postgres` named volume; stopping the containers does not remove
+   that data.
+3. Open `http://localhost:5174` for the web app and check
+   `http://localhost:5001/health` for the API. To load the sample tickets, register
+   Customer accounts using matching `customer1@example.com` through
+   `customer50@example.com` email addresses, then run:
+
+   ```bash
+   docker compose exec api sh -c "cd database && npm run seed"
+   ```
+
+   It assigns each sample only to an existing matching Customer; unmatched
+   sample tickets remain unowned.
+4. Import `postman/SupportDesk-Dashboard.postman_collection.json` into Postman.
+   Set the customer and agent login variables in a local Postman environment,
+   then run the collection. Agents (the current all-ticket role) see all
+   tickets, while the API limits customers to tickets they own.
+   Admin accounts can view all tickets and assign them to Agents. To create an
+   Admin account, register the user normally, then change that user's role to
+   `Admin` in Prisma Studio. Public registration always creates Customers.

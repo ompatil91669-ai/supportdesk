@@ -1,0 +1,509 @@
+# Week 2 — Day 5 (Day 11): Querying, API Documentation and Tests
+
+# Week 2 — Day 5 (Overall Day 11): Querying, API Documentation and Tests
+
+**Scheduled date:** Monday, 9 November 2026
+**Duration:** 5 hours
+**Project:** SupportDesk
+
+<aside>
+🧪
+
+**Today's goal**
+
+Extend the SupportDesk API so users can efficiently query tickets, collaborate through comments, understand the API through interactive documentation, and rely on automated tests. Build on Days 7–10 without breaking existing behaviour.
+
+</aside>
+
+## 1. Learning outcomes
+
+Understand and implement pagination, filtering, search, sorting, comments endpoints, OpenAPI documentation, unit tests, integration tests, mocks, test databases, code coverage and Definition of Done (DoD).
+
+- **Pagination:** return a limited subset of records at a time.
+- **Filtering:** narrow results by fields such as status, priority or assignee.
+- **Search:** find records using an approved search term.
+- **Sorting:** control the order of returned records.
+- **OpenAPI:** standard format for describing HTTP APIs.
+- **Unit test:** test one unit of logic in isolation.
+- **Integration test:** test multiple parts working together.
+- **Mock:** replace a dependency with a controlled test substitute.
+- **DoD:** agreed conditions that must be met before work is complete.
+
+## 2. Required scope
+
+### A. Ticket querying
+
+Implement:
+
+- Pagination.
+- Filter by ticket status.
+- Filter by ticket priority.
+- Filter by assignee.
+- Search tickets using approved searchable fields.
+- Sort using approved fields and direction.
+- Validate query parameters and reject invalid values.
+- Preserve customer/agent access rules from Day 10.
+- Keep the response envelope: { data, error, meta }.
+
+### B. Comments endpoints
+
+Implement:
+
+- Create a comment on a ticket.
+- List comments for a ticket.
+- Enforce authentication and ticket access rules.
+- Validate comment input.
+- Respect public/internal comment distinction if it exists in the approved schema.
+- Do not invent fields or permissions. Ask the lead if unclear.
+
+### C. API documentation
+
+- Create an OpenAPI specification for implemented API routes.
+- Serve the documentation UI at /docs.
+- Document authentication, parameters, request bodies, responses and error status codes.
+- Ensure documentation matches actual routes and behaviour.
+
+### D. Automated testing
+
+- Jest unit tests for services, with repositories mocked.
+- Supertest integration tests against an isolated test database.
+- Use the test-first prompt for two functions.
+- Preserve and run existing tests from previous days.
+
+## 3. Five-hour schedule
+
+| Time | Activity | Expected output |
+| --- | --- | --- |
+| 0:00–0:15 | Standup and review Day 10 | Existing API/tests verified |
+| 0:15–0:55 | Learn pagination, filters, search, sorting and OpenAPI | Notes and endpoint plan |
+| 0:55–1:25 | Inspect schema and write test cases first | Test plan for two functions |
+| 1:25–2:35 | Implement ticket querying and comments endpoints | Working API functionality |
+| 2:35–3:15 | Create OpenAPI spec and expose /docs | Rendered API documentation |
+| 3:15–4:30 | Jest unit tests and Supertest integration tests | Tests run against mocks/test DB |
+| 4:30–4:45 | Run full suite and check service coverage | Test report and coverage |
+| 4:45–5:00 | Review, commit, PR and EOD | Focused PR and EOD report |
+
+## 4. Step 1 — Inspect the existing API
+
+Before editing:
+
+1. Confirm Day 10 authentication and role middleware works.
+2. Run the existing test suite and record the baseline result.
+3. Inspect Ticket and Comment models in schema.prisma.
+4. Inspect existing ticket list/detail services and repositories.
+5. Identify validation conventions and response metadata.
+6. Confirm customer ownership and agent access enforcement.
+7. Check comment visibility rules in the PRD/schema.
+
+Use this read-only prompt:
+
+```
+Act as a senior TypeScript, Express, Prisma and test automation engineer.
+
+Inspect my existing SupportDesk API for Day 11. Do not edit files.
+
+I need to add:
+- Ticket pagination.
+- Filters by status, priority and assignee.
+- Search and sorting.
+- Comments endpoints.
+- OpenAPI documentation served at /docs.
+- Jest service unit tests with repositories mocked.
+- Supertest integration tests using a test database.
+
+Report:
+1. Existing ticket and comment models and fields.
+2. Existing ticket list/detail endpoints and architecture.
+3. Current role and ticket ownership enforcement.
+4. Existing validation and response-envelope conventions.
+5. Existing test framework, scripts and test setup.
+6. Existing database test configuration, if any.
+7. Exact files likely to change.
+8. Missing requirements or decisions needing lead approval.
+9. Risks to existing Day 9 and Day 10 behaviour.
+
+Cite exact file paths and code evidence. Do not assume fields, routes or permissions exist. Do not modify anything.
+```
+
+Do not begin implementation until you understand the actual schema and existing behaviour.
+
+## 5. Step 2 — Design ticket query parameters
+
+Use query parameters rather than creating a separate endpoint for every filter, unless the existing API design requires otherwise.
+
+Illustrative request:
+
+```
+GET /api/tickets?page=1&limit=10&status=open&priority=P1&assigneeId=user-123&search=payment&sortBy=createdAt&sortOrder=desc
+```
+
+Adapt the route prefix and parameter names to the existing project.
+
+| Feature | Example | Expected behaviour |
+| --- | --- | --- |
+| Pagination | page=1, limit=10 | Return first page with at most 10 records |
+| Status filter | status=open | Return only open tickets |
+| Priority filter | priority=P1 | Return only P1 tickets |
+| Assignee filter | assigneeId=user-123 | Return tickets assigned to that user |
+| Search | search=payment | Search only approved searchable fields |
+| Sorting | createdAt, desc | Newest records first |
+
+### Pagination metadata
+
+Keep the existing response envelope. A possible metadata shape is:
+
+```json
+{
+  "data": { "tickets": [] },
+  "error": null,
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "total": 42,
+    "totalPages": 5
+  }
+}
+```
+
+This is an example, not a mandate to change the project's established response structure. Confirm the final shape with the lead.
+
+### Validation and safety
+
+- Reject invalid page numbers and limits.
+- Apply a sensible maximum page size approved by the lead.
+- Allowlist sortable fields; never pass arbitrary client input into a database sort expression.
+- Validate filter values against actual enums/schema.
+- Use parameterized ORM queries; do not concatenate raw SQL from user input.
+- Apply customer ownership scope before returning results.
+- Ensure pagination totals use the same access scope as returned records.
+
+## 6. Step 3 — Implement filters, search and sorting
+
+Implement the query flow through the established layers:
+
+**Route → Controller → Service → Repository**
+
+- Route: map URL to controller and attach validation/auth middleware.
+- Controller: read validated query parameters and send the HTTP response.
+- Service: apply business rules, including role-based data scope.
+- Repository: build the database query and return records/counts.
+
+Do not put Prisma calls in routes, controllers or services. Database access belongs in repositories/.
+
+Use this planning prompt:
+
+```
+Prepare an implementation plan for Day 11 ticket querying based on the actual repository.
+
+Requirements:
+- Pagination.
+- Filters: status, priority and assignee.
+- Search using only approved fields.
+- Sorting with an allowlist of fields and asc/desc direction.
+- Input validation using the project's existing validation approach.
+- Customer ownership scope and agent access from Day 10.
+- Existing response envelope { data, error, meta }.
+- Prisma access only in repositories/.
+
+Show the proposed route, controller, service, repository and validation changes.
+Explain how pagination totals and results respect the user's access scope.
+Identify relevant indexes, but do not change the database schema without approval.
+Do not edit files. Wait for approval.
+```
+
+After approval, implement in small steps and add tests as you go.
+
+## 7. Step 4 — Implement comments endpoints
+
+Use the actual Comment model and existing project conventions. Do not invent fields or relationships.
+
+At minimum, implement:
+
+- Create a comment for a ticket.
+- List comments for a ticket.
+
+Verify:
+
+1. Unauthenticated users cannot access protected comment routes.
+2. A customer can comment only where ticket access/ownership rules permit.
+3. An agent can comment according to approved permissions.
+4. A comment cannot be created for a non-existent ticket.
+5. Comment content is validated; empty/invalid content is rejected.
+6. Author identity comes from the verified authenticated user, not a client-supplied author ID.
+7. Internal comments, if supported, are never exposed to customers.
+8. Responses do not expose sensitive internal fields.
+
+Ask the lead if comment visibility, edit/delete permissions or customer commenting rules are unclear. Do not guess.
+
+## 8. Step 5 — Write the OpenAPI specification and serve /docs
+
+Create an OpenAPI specification in the project's documentation/API-docs location, following repository convention. Expose the interactive documentation at:
+
+```
+http://localhost:<port>/docs
+```
+
+Document all implemented endpoints, including:
+
+- Health endpoint.
+- Register and login.
+- Ticket list and detail.
+- Ticket create/update endpoints that exist.
+- Comments create/list.
+- Authentication requirements.
+- Query parameters for pagination, filters, search and sorting.
+- Request body schemas.
+- Success response examples.
+- Error responses, including 400, 401, 403, 404 and relevant rate-limit responses.
+
+Documentation accuracy rules:
+
+- Document only routes that actually exist.
+- Do not claim a response field exists unless the API returns it.
+- Match required/optional fields to actual validators and database constraints.
+- Include Bearer authentication configuration for protected endpoints.
+- Use fictional examples only; never put real tokens, secrets or personal data in the spec.
+
+After writing the spec, use this read-only review prompt:
+
+```
+Compare my OpenAPI specification with the actual Express routes, validators and response implementations.
+
+Do not edit files.
+
+Find:
+1. Missing endpoints.
+2. Documented endpoints that do not exist.
+3. Incorrect HTTP methods or paths.
+4. Incorrect request/response schemas.
+5. Missing query parameters.
+6. Missing authentication/role requirements.
+7. Incorrect status codes or error formats.
+8. Examples that do not match actual behaviour.
+
+For each issue, cite the exact OpenAPI section and source-code file. Report PASS / FAIL / NOT VERIFIED for each endpoint.
+```
+
+Open /docs in the browser and verify it renders. A specification file that exists but is not served at /docs does not meet today's requirement.
+
+## 9. Step 6 — Test-first exercise for two functions
+
+Choose two meaningful functions, for example:
+
+- A query-parameter validation function.
+- A service function that applies customer/agent ticket visibility and query rules.
+
+For each function:
+
+1. Write expected inputs and outputs.
+2. Ask AI to identify normal, invalid, boundary and access-control cases.
+3. Write tests before implementation.
+4. Run tests and confirm they fail for the expected reason.
+5. Implement the function.
+6. Run tests again and confirm they pass.
+7. Record the test-first process in the Prompt Journal.
+
+Use this prompt:
+
+```
+Help me follow a test-first workflow for this function: [paste function signature and relevant types].
+
+Do not implement the function yet.
+
+First:
+1. Explain the function's responsibility.
+2. Identify normal, invalid, boundary and security-related cases.
+3. Propose Jest test cases with expected results.
+4. Identify dependencies that should be mocked.
+5. Explain what each test protects against.
+
+Wait for my approval before writing tests. After approval, write tests only. Do not implement the function until I have run the tests and confirmed the expected failures.
+```
+
+Do not fake a red test by deliberately writing an incorrect assertion. The initial failure should demonstrate missing or incorrect behaviour.
+
+## 10. Step 7 — Jest unit tests for services
+
+Write service unit tests with repository dependencies mocked.
+
+Cover:
+
+- Default pagination behaviour.
+- Valid and invalid filter combinations.
+- Search and sorting validation.
+- Customer scope is applied.
+- Agent scope is applied.
+- Comment creation success.
+- Comment creation for a missing ticket.
+- Invalid comment operations as represented by service rules.
+- Error propagation from repository failures.
+
+Unit tests must not connect to the real database. Mock the repository boundary and assert the service passes the correct query/scope and handles results correctly. Test observable behaviour, not private implementation details.
+
+## 11. Step 8 — Supertest integration tests with a test database
+
+Use Supertest to exercise the real Express application through HTTP requests. Run integration tests against a dedicated test database, never production or a shared live database.
+
+Minimum integration coverage:
+
+| Area | Scenario | Expected result |
+| --- | --- | --- |
+| Ticket pagination | Request first page with small limit | Correct page and metadata |
+| Ticket filters | Filter by status | Only matching tickets |
+| Priority filter | Filter by priority | Only matching priority |
+| Assignee filter | Filter by assignee | Only matching assignee |
+| Search | Search a known test term | Matching tickets returned |
+| Sorting | Sort newest first | Correct order |
+| Invalid query | Invalid page/limit/filter/sort field | 400 validation response |
+| Customer scope | Customer lists tickets | Own tickets only |
+| Cross-customer access | Customer requests another user's ticket | No data leakage |
+| Agent scope | Agent lists tickets | All tickets in approved scope |
+| Comments | Create a valid comment | Success and correct author |
+| Missing ticket | Comment on non-existent ticket | 404 |
+| Comment validation | Empty/invalid comment body | 400 |
+| Auth | Missing token on protected endpoint | 401 |
+| Role | Wrong role on restricted route | 403 |
+| Documentation | Request /docs | Documentation UI renders |
+
+Use deterministic fixtures/seed data so tests do not depend on execution order or external services. Clean up test records safely. Keep test database configuration separate from development configuration.
+
+## 12. Step 9 — Coverage and quality gate
+
+Run the project's actual test command:
+
+```bash
+npm test
+```
+
+Run the configured coverage command (use the script already present in package.json, or ask the lead before adding one).
+
+Roadmap acceptance targets:
+
+- At least **20 tests pass** with npm test.
+- **Service coverage at least 70%**.
+- **/docs renders** successfully.
+
+Coverage is not a substitute for meaningful assertions. A test that executes a line but does not verify behaviour does not provide meaningful protection.
+
+Also run:
+
+- TypeScript type check.
+- Lint and formatting checks configured in the repo.
+- Existing Day 9 and Day 10 regression tests.
+- Relevant integration tests against the test database.
+
+Record the exact command and actual result. Do not report a target as achieved unless tool output proves it.
+
+## 13. Step 10 — Final architecture audit with AI
+
+Use this read-only audit prompt after implementation:
+
+```
+Act as a senior backend architect and QA automation engineer.
+
+Audit my Day 11 implementation against the roadmap.
+
+Requirements:
+- Ticket pagination.
+- Filters by status, priority and assignee.
+- Search and sorting.
+- Comments endpoints.
+- OpenAPI documentation served at /docs.
+- Jest service unit tests with repositories mocked.
+- Supertest integration tests against a test database.
+- Test-first workflow demonstrated for two functions.
+- At least 20 passing tests.
+- At least 70% service coverage.
+
+Also verify:
+1. Routes → controllers → services → repositories architecture.
+2. Prisma imports/database calls exist only in repositories/.
+3. Day 10 authentication and role rules remain enforced.
+4. Customers cannot access other customers' tickets or private comments.
+5. Query parameters are validated and sort fields are allowlisted.
+6. The API response envelope remains consistent.
+7. OpenAPI documentation matches real routes and schemas.
+8. Integration tests use only an isolated test database.
+
+For every requirement report PASS / FAIL / NOT VERIFIED with exact file/test/output evidence.
+Do not infer runtime behaviour from code alone.
+Do not modify files.
+```
+
+## 14. Git and submission rules
+
+- Use one task branch for Day 11; do not work directly on main.
+- Keep the PR focused and approximately 400 changed lines or fewer.
+- Use a Conventional Commit, for example: feat(api): add ticket querying and comments.
+- Do not merge your own PR.
+- Do not commit secrets, real tokens, production data or database dumps.
+- Include the OpenAPI spec, test files and sanitized test evidence.
+- Update docs/prompt-journal.md with prompts, AI output summary, changes and verification.
+- Explain every changed line during review.
+
+## 15. Final checklist
+
+- [ ]  Existing Day 9 and Day 10 tests pass.
+- [ ]  Ticket pagination works.
+- [ ]  Status filter works.
+- [ ]  Priority filter works.
+- [ ]  Assignee filter works.
+- [ ]  Search works on approved fields.
+- [ ]  Sorting works and uses an allowlist.
+- [ ]  Query parameters are validated.
+- [ ]  Customer data scope is enforced in backend logic.
+- [ ]  Agent access follows approved role rules.
+- [ ]  Comments create/list endpoints work.
+- [ ]  Comment author identity comes from authenticated context.
+- [ ]  Comment visibility/access rules are enforced.
+- [ ]  OpenAPI specification documents actual routes and schemas.
+- [ ]  /docs renders successfully.
+- [ ]  Jest service tests mock repositories.
+- [ ]  Supertest integration tests use an isolated test database.
+- [ ]  Test-first workflow is recorded for two functions.
+- [ ]  At least 20 tests pass with npm test.
+- [ ]  Service coverage is at least 70%.
+- [ ]  Type check, lint and regression tests pass.
+- [ ]  Prompt Journal, EOD report and focused PR are complete.
+
+## 16. Definition of Done
+
+Day 11 is complete when ticket pagination, filters (status, priority, assignee), search and sorting work; comments endpoints are implemented with correct access rules; an accurate OpenAPI specification is served at /docs; Jest unit tests cover services with repositories mocked; and Supertest integration tests run against an isolated test database. The test-first workflow is demonstrated for two functions, at least 20 tests pass using npm test, and service coverage is at least 70%.
+
+**Not complete:** a static OpenAPI file that is not served at /docs, tests that use a production/shared database, mocked tests presented as integration tests, UI-only access restrictions, or unverified claims about test counts and coverage.
+
+## 17. Suggested EOD report
+
+```
+Day 11 — Querying, API Documentation and Tests — EOD Report
+
+1. Branch and PR link:
+2. Existing test baseline:
+3. Pagination endpoint and test result:
+4. Status filter result:
+5. Priority filter result:
+6. Assignee filter result:
+7. Search result:
+8. Sorting result:
+9. Query validation and invalid-input result:
+10. Comments endpoints implemented:
+11. Comment access/visibility tests:
+12. OpenAPI specification path:
+13. /docs browser verification:
+14. Jest service unit test count/result:
+15. Supertest integration test count/result:
+16. Test database used (confirm isolated):
+17. Two functions completed with test-first workflow:
+18. npm test exact output:
+19. Service coverage percentage and report:
+20. Type check/lint/regression results:
+21. Prompt Journal updated:
+22. Blockers or lead decisions needed:
+23. What I learned today:
+```
+
+## 18. Term of the day — DoD (Definition of Done)
+
+**Definition of Done (DoD)** is the agreed checklist that proves a task is complete and ready for review. It prevents a feature from being called “done” just because code was written.
+
+For today's task, code alone is not enough: query behaviour, access control, comments, documentation, automated tests, test count and coverage must all meet the acceptance criteria.

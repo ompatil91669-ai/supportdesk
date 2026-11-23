@@ -8,6 +8,8 @@ import DashboardPage from "./pages/DashboardPage";
 import TicketListPage from "./pages/TicketListPage";
 import TicketDetailPage from "./pages/TicketDetailPage";
 import TicketCreatePage from "./pages/TicketCreatePage";
+import AdminUsersPage from "./pages/AdminUsersPage";
+import WorkspaceLayout from "./components/WorkspaceLayout";
 
 const queryClient = new QueryClient();
 
@@ -20,10 +22,13 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
 
             <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/tickets/new" element={<TicketCreatePage />} />
-              <Route path="/tickets" element={<TicketListPage />} />
-              <Route path="/tickets/:id" element={<TicketDetailPage />} />
+              <Route element={<WorkspaceLayout />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/tickets/new" element={<TicketCreatePage />} />
+                <Route path="/tickets" element={<TicketListPage />} />
+                <Route path="/tickets/:id" element={<TicketDetailPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+              </Route>
             </Route>
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

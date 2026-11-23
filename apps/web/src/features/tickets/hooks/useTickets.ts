@@ -7,8 +7,10 @@ import {
 } from "@tanstack/react-query";
 import {
   changeTicketStatus,
+  assignTicket,
   createTicket,
   createTicketComment,
+  getAssignableAgents,
   getTicket,
   getTicketComments,
   getTickets,
@@ -31,6 +33,8 @@ export const ticketKeys = {
   detail: (id: string) =>
     [...ticketKeys.details(), id] as const,
 
+  assignableAgents: ["users", "assignable-agents"] as const,
+
   comments: (id: string) =>
     [...ticketKeys.all, "comments", id] as const,
 };
@@ -49,6 +53,15 @@ export function useTicket(id: string) {
     queryKey: ticketKeys.detail(id),
     queryFn: () => getTicket(id),
     enabled: Boolean(id),
+  });
+}
+
+export function useAssignableAgents(enabled = true) {
+  return useQuery({
+    queryKey: ticketKeys.assignableAgents,
+    queryFn: getAssignableAgents,
+    enabled,
+    staleTime: 60_000,
   });
 }
 
@@ -76,6 +89,18 @@ export function useChangeTicketStatus(id: string) {
 
   return useMutation({
     mutationFn: (status: TicketStatus) => changeTicketStatus(id, status),
+    onSuccess: async (ticket) => {
+      queryClient.setQueryData(ticketKeys.detail(id), ticket);
+      await queryClient.invalidateQueries({ queryKey: ticketKeys.lists() });
+    },
+  });
+}
+
+export function useAssignTicket(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (assigneeId: string | null) => assignTicket(id, assigneeId),
     onSuccess: async (ticket) => {
       queryClient.setQueryData(ticketKeys.detail(id), ticket);
       await queryClient.invalidateQueries({ queryKey: ticketKeys.lists() });

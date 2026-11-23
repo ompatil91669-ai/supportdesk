@@ -1,0 +1,37 @@
+# End of Day Report — Day 13
+
+**Project:** SupportDesk  
+**Task:** Frontend Foundations — React, TypeScript, Authentication & Protected Routes  
+**Status:** Completed
+
+### Work Completed
+1. Set up the frontend application using React, Vite, and TypeScript.
+2. Integrated Tailwind CSS for responsive UI design.
+3. Developed a Login Page using React Hook Form with email and password validation.
+4. Connected the frontend login functionality to the existing SupportDesk Backend API.
+5. Implemented JWT-based authentication with in-memory token storage and session expiry handling.
+6. Created a responsive Dashboard with protected routing and logout functionality.
+7. Configured TanStack Query for future API integration.
+8. Created automated tests using Vitest and React Testing Library.
+9. Committed and pushed the frontend implementation to GitHub and created a Pull Request.
+
+### Testing Results
+- Login form validation — Passed
+- Invalid email validation — Passed
+- Protected route (unauthenticated user) — Passed
+- Protected route (authenticated user) — Passed
+- Automated Tests — **4/4 Passed**
+- ESLint — Passed
+- Production Build — Successful
+- Manual Login and Logout Testing — Successful
+
+### GitHub Details
+**Branch:** `feat/web-login-foundation`  
+**Commit:** `4394115`  
+**Pull Request:** Created
+
+### Learning Outcomes
+Learned how to structure a React frontend, integrate REST APIs, manage JWT authentication, protect application routes, handle form validation, and write automated frontend tests.
+
+### Next Steps
+Extend the dashboard with ticket management features and integrate ticket APIs using TanStack Query.

@@ -1,0 +1,159 @@
+{
+  "info": {
+    "name": "SupportDesk Dashboard Access",
+    "description": "Locally runnable requests for the Customer and Agent ticket dashboards. Set account variables in a local Postman environment with local-only values; do not save real passwords or JWTs in this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5001" },
+    { "key": "customerEmail", "value": "" },
+    { "key": "customerPassword", "value": "" },
+    { "key": "agentEmail", "value": "" },
+    { "key": "agentPassword", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('API is healthy', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().data.status).to.eql('ok');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Customer login succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  const user = pm.response.json().data;",
+              "  pm.environment.set('customerToken', user.token);",
+              "  pm.environment.set('customerId', user.user.id);",
+              "  pm.test('Logged in as a Customer', function () {",
+              "    pm.expect(user.user.role).to.eql('Customer');",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Dashboard Tickets",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }]
+        },
+        "url": "{{baseUrl}}/tickets?limit=100"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Customer ticket list succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  const rows = pm.response.json().data;",
+              "  const customerId = pm.environment.get('customerId');",
+              "  pm.test('Customer sees only owned tickets', function () {",
+              "    pm.expect(rows.every(ticket => ticket.userId === customerId)).to.be.true;",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{agentEmail}}\",\n  \"password\": \"{{agentPassword}}\"\n}"
+        },
+        "url": "{{baseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Agent login succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  const user = pm.response.json().data;",
+              "  pm.environment.set('agentToken', user.token);",
+              "  pm.test('Logged in as an Agent', function () {",
+              "    pm.expect(user.user.role).to.eql('Agent');",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent Dashboard - All Tickets",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }]
+        },
+        "url": "{{baseUrl}}/tickets?limit=100"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Agent can list tickets across customers', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const result = pm.response.json();",
+              "  pm.expect(result.meta.total).to.be.at.least(result.data.length);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

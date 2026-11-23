@@ -13,6 +13,7 @@ jest.mock("../src/repositories/ticket.repository", () => ({
 
 const customer = { id: "customer-1", role: Role.Customer };
 const agent = { id: "agent-1", role: Role.Agent };
+const admin = { id: "admin-1", role: Role.Admin };
 const ticket: Ticket = {
   id: "TKT-1001",
   name: "Jamie Example",
@@ -65,6 +66,19 @@ describe("comment service", () => {
         ticket.id,
         { content: "Internal note", isInternal: true },
         agent
+      )
+    ).resolves.toBe(internalComment);
+  });
+
+  it("allows an admin to create an internal comment", async () => {
+    const internalComment = { ...comment, isInternal: true, authorId: admin.id };
+    comments.createComment.mockResolvedValue(internalComment);
+
+    await expect(
+      commentService.addComment(
+        ticket.id,
+        { content: "Admin note", isInternal: true },
+        admin
       )
     ).resolves.toBe(internalComment);
   });

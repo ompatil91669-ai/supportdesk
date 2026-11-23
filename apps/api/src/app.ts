@@ -7,6 +7,7 @@ import swaggerUi from "swagger-ui-express";
 
 import ticketRoutes from "./routes/ticket.routes";
 import authRoutes from "./routes/auth.routes";
+import userRoutes from "./routes/user.routes";
 import { requestLogger } from "./middleware/requestLogger";
 import { errorHandler, AppError } from "./middleware/errorHandler";
 import { successResponse } from "./utils/response";
@@ -68,6 +69,7 @@ app.use(
 
 // API routes
 app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
 app.use("/tickets", ticketRoutes);
 
 // Handle unknown routes
