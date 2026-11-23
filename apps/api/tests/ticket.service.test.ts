@@ -10,6 +10,7 @@ jest.mock("../src/repositories/ticket.repository", () => ({
 }));
 
 const customer = { id: "customer-1", role: Role.Customer };
+const agent = { id: "agent-1", role: Role.Agent };
 const ticket: Ticket = {
   id: "TKT-1001",
   name: "Jamie Example",
@@ -119,8 +120,8 @@ describe("ticket service", () => {
     expect(repository.createTicket).toHaveBeenCalledWith(input, customer);
   });
 
-  it("updates an accessible ticket", async () => {
-    const update = { status: TicketStatus.Closed };
+  it("lets a customer update non-status fields on an owned ticket", async () => {
+    const update = { name: "Updated name" };
     repository.updateTicket.mockResolvedValue(ticket);
 
     await expect(
@@ -133,11 +134,39 @@ describe("ticket service", () => {
     );
   });
 
+  it("lets an agent change ticket status", async () => {
+    const update = { status: TicketStatus.Closed };
+    repository.updateTicket.mockResolvedValue(ticket);
+
+    await expect(
+      ticketService.editTicket(ticket.id, update, agent)
+    ).resolves.toBe(ticket);
+    expect(repository.updateTicket).toHaveBeenCalledWith(
+      ticket.id,
+      update,
+      agent
+    );
+  });
+
+  it("prevents customers from changing ticket status", async () => {
+    await expect(
+      ticketService.editTicket(
+        ticket.id,
+        { status: TicketStatus.Closed },
+        customer
+      )
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      code: "FORBIDDEN",
+    });
+    expect(repository.updateTicket).not.toHaveBeenCalled();
+  });
+
   it("reports an inaccessible or missing ticket on update", async () => {
     repository.updateTicket.mockResolvedValue(null);
 
     await expect(
-      ticketService.editTicket(ticket.id, { status: TicketStatus.Closed }, customer)
+      ticketService.editTicket(ticket.id, { name: "Updated" }, customer)
     ).rejects.toMatchObject({
       statusCode: 404,
       code: "TICKET_NOT_FOUND",

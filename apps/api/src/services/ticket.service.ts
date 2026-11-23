@@ -67,6 +67,14 @@ export async function editTicket(
   data: UpdateTicketInput,
   user: TicketAccess
 ) {
+  if (data.status !== undefined && user.role !== Role.Agent) {
+    throw new AppError(
+      403,
+      "FORBIDDEN",
+      "Only agents can change ticket status"
+    );
+  }
+
   const ticket = await ticketRepository.updateTicket(id, data, user);
 
   if (!ticket) {
