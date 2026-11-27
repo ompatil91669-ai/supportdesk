@@ -182,3 +182,126 @@ export async function apiRequestWithMeta<T>(
 
   return result;
 }
+
+export interface StreamApiCallbacks {
+  onDelta: (text: string) => void;
+  onComplete: () => void;
+  onError: (code: string, message: string) => void;
+  onInterrupted: () => void;
+}
+
+export async function streamApiRequest(
+  endpoint: string,
+  callbacks: StreamApiCallbacks,
+  options: RequestInit = {}
+): Promise<void> {
+  const headers = new Headers(options.headers);
+  headers.set("Accept", "text/event-stream");
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(
+      `${API_BASE_URL.replace(/\/$/, "")}${endpoint}`,
+      { ...options, headers }
+    );
+  } catch {
+    callbacks.onError("NETWORK_ERROR", "Cannot connect to the server.");
+    return;
+  }
+
+  if (!response.ok) {
+    try {
+      const result = (await response.json()) as ApiResponse<unknown>;
+      callbacks.onError(
+        result.error?.code ?? "API_ERROR",
+        result.error?.message ?? "The AI request failed."
+      );
+    } catch {
+      callbacks.onError(
+        "INVALID_RESPONSE",
+        "The server returned an unexpected response."
+      );
+    }
+    return;
+  }
+
+  if (!response.body) {
+    callbacks.onInterrupted();
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let completed = false;
+
+  function processEvent(block: string) {
+    let eventName = "message";
+    const dataLines: string[] = [];
+
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith("event:")) {
+        eventName = line.slice("event:".length).trim();
+      } else if (line.startsWith("data:")) {
+        dataLines.push(line.slice("data:".length).trimStart());
+      }
+    }
+
+    if (dataLines.length === 0) return;
+    const payload = dataLines.join("\n");
+    let data: unknown;
+    try {
+      data = JSON.parse(payload);
+    } catch {
+      callbacks.onError("INVALID_STREAM", "The AI stream returned invalid data.");
+      return;
+    }
+
+    if (eventName === "delta") {
+      if (
+        typeof data === "object" &&
+        data !== null &&
+        "text" in data &&
+        typeof data.text === "string"
+      ) {
+        callbacks.onDelta(data.text);
+      }
+    } else if (eventName === "complete") {
+      completed = true;
+      callbacks.onComplete();
+    } else if (eventName === "error") {
+      if (typeof data === "object" && data !== null) {
+        const error = data as { code?: string; message?: string };
+        callbacks.onError(
+          error.code ?? "AI_PROVIDER_ERROR",
+          error.message ?? "The AI service is temporarily unavailable."
+        );
+      }
+    }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let separatorIndex = buffer.indexOf("\n\n");
+      while (separatorIndex >= 0) {
+        processEvent(buffer.slice(0, separatorIndex));
+        buffer = buffer.slice(separatorIndex + 2);
+        separatorIndex = buffer.indexOf("\n\n");
+      }
+    }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) processEvent(buffer);
+    if (!completed) callbacks.onInterrupted();
+  } catch {
+    callbacks.onInterrupted();
+  }
+}

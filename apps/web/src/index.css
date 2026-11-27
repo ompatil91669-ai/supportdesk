@@ -1,10 +1,22 @@
 @import "tailwindcss";
 
 :root {
+  --color-page: #f8f5ff;
+  --color-lavender: #c4b5fd;
+  --color-lavender-decorative: #a78bfa;
+  --color-primary: #6d28d9;
+  --color-primary-hover: #5b21b6;
+  --color-surface-purple: #ede9fe;
+  --color-sidebar: #f3eeff;
+  --color-border: #ddd6fe;
+  --color-heading: #312e81;
+  --color-text: #1f2937;
+  --color-secondary-text: #4b5563;
+  --color-focus: #8b5cf6;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  color: #172033;
-  background: #f4f6fb;
+  color: var(--color-text);
+  background: var(--color-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -28,8 +40,8 @@ body,
 body {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at 10% 0%, rgba(224, 231, 255, 0.62), transparent 34rem),
-    #f4f6fb;
+    radial-gradient(ellipse at 10% 0%, rgba(237, 233, 254, 0.72), transparent 34rem),
+    var(--color-page);
 }
 
 button,
@@ -53,11 +65,11 @@ a {
 
 ::selection {
   color: #fff;
-  background: #4f46e5;
+  background: var(--color-primary);
 }
 
 :focus-visible {
-  outline: 3px solid rgba(79, 70, 229, 0.48);
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 

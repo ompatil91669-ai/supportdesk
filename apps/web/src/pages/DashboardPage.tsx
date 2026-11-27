@@ -1,6 +1,21 @@
 import { Link } from "react-router-dom";
+import Badge from "../components/Badge";
+import Button from "../components/Button";
 import { useAuth } from "../lib/auth-context";
+import type { TicketPriority, TicketStatus } from "../features/tickets/api/tickets";
 import { useTickets } from "../features/tickets/hooks/useTickets";
+
+const statusBadgeVariant: Record<TicketStatus, "open" | "pending" | "closed"> = {
+  Open: "open",
+  Pending: "pending",
+  Closed: "closed",
+};
+
+const priorityBadgeVariant: Record<TicketPriority, "low" | "medium" | "high"> = {
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -98,9 +113,9 @@ export default function DashboardPage() {
           ) : isError ? (
             <div role="alert" className="notice notice-error">
               <span>{error instanceof Error ? error.message : "Unable to load tickets."}</span>
-              <button className="button button-secondary" onClick={() => void refetch()}>
+              <Button variant="secondary" onClick={() => void refetch()}>
                 Try again
-              </button>
+              </Button>
             </div>
           ) : tickets.length === 0 ? (
             <p className="empty-state">No tickets found yet.</p>
@@ -118,12 +133,12 @@ export default function DashboardPage() {
                     <p>{ticket.name}</p>
                   </div>
                   <div className="ticket-tags">
-                    <span className={`status-tag status-${ticket.status.toLowerCase()}`}>
+                    <Badge variant={statusBadgeVariant[ticket.status]}>
                       {ticket.status}
-                    </span>
-                    <span className={`priority-tag priority-${ticket.priority.toLowerCase()}`}>
+                    </Badge>
+                    <Badge variant={priorityBadgeVariant[ticket.priority]}>
                       {ticket.priority}
-                    </span>
+                    </Badge>
                   </div>
                 </li>
               ))}

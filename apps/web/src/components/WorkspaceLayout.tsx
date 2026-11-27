@@ -1,10 +1,20 @@
 import { NavLink, Outlet } from "react-router-dom";
+import Badge from "./Badge";
+import Button from "./Button";
 import { useAuth } from "../lib/auth-context";
 
 export default function WorkspaceLayout() {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "Admin";
   const isCustomer = user?.role === "Customer";
+  const roleVariant =
+    user?.role === "Customer"
+      ? "customer"
+      : user?.role === "Agent"
+        ? "agent"
+        : user?.role === "Admin"
+          ? "admin"
+          : "neutral";
 
   return (
     <div className="workspace-frame">
@@ -32,18 +42,18 @@ export default function WorkspaceLayout() {
 
         <div className="workspace-account">
           <div className="account-copy">
-            <span className={`role-badge role-${user?.role.toLowerCase()}`}>
-              {user?.role}
-            </span>
+            <Badge variant={roleVariant}>{user?.role ?? "User"}</Badge>
             <strong>{user?.name}</strong>
           </div>
-          <button
+          <Button
             type="button"
-            className="button button-quiet"
+            variant="secondary"
+            size="small"
+            className="button-quiet"
             onClick={logout}
           >
             Sign out
-          </button>
+          </Button>
         </div>
       </aside>
 

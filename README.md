@@ -176,3 +176,6 @@ npm run build
    Admin accounts can view all tickets and assign them to Agents. To create an
    Admin account, register the user normally, then change that user's role to
    `Admin` in Prisma Studio. Public registration always creates Customers.
+5. Day 16 Gemini features are available only to Agent and Admin users. Add
+   `GEMINI_API_KEY` to `apps/api/database/.env` for host-run API development.
+   The key must never be added to frontend environment files or committed.
