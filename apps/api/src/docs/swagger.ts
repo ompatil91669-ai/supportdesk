@@ -681,6 +681,94 @@ export function createSwaggerDocument() {
           },
         },
       },
+      "/tickets/{id}/ai/suggest-reply": {
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", minLength: 1 },
+          },
+        ],
+        post: {
+          tags: ["AI"],
+          summary: "Stream an AI reply draft",
+          description:
+            "Agent and Admin only. Streams SSE delta, complete, and error events without creating a comment.",
+          security,
+          responses: {
+            "200": {
+              description: "Server-Sent Events stream",
+              content: {
+                "text/event-stream": {
+                  schema: { type: "string" },
+                },
+              },
+            },
+            "401": errorResponse,
+            "403": errorResponse,
+            "422": errorResponse,
+            "429": errorResponse,
+            "502": errorResponse,
+            "503": errorResponse,
+          },
+        },
+      },
+      "/tickets/{id}/ai/categorise": {
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", minLength: 1 },
+          },
+        ],
+        post: {
+          tags: ["AI"],
+          summary: "Suggest ticket category and priority",
+          description:
+            "Agent and Admin only. Suggestions are validated and are not saved to the ticket.",
+          security,
+          responses: {
+            "200": {
+              description: "Validated AI suggestion",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["data", "error", "meta"],
+                    properties: {
+                      data: {
+                        type: "object",
+                        required: ["category", "priority"],
+                        properties: {
+                          category: {
+                            type: "string",
+                            enum: ["Technical", "Billing", "Account", "General", "Other"],
+                          },
+                          priority: {
+                            type: "string",
+                            enum: ["Low", "Medium", "High"],
+                          },
+                        },
+                        additionalProperties: false,
+                      },
+                      error: { type: "object", nullable: true },
+                      meta: { type: "object" },
+                    },
+                  },
+                },
+              },
+            },
+            "401": errorResponse,
+            "403": errorResponse,
+            "422": errorResponse,
+            "429": errorResponse,
+            "502": errorResponse,
+            "503": errorResponse,
+          },
+        },
+      },
       "/tickets/{id}/comments": {
         parameters: [
           {

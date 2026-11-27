@@ -15,6 +15,8 @@ const {
   mockChangeStatus,
   mockAssignTicket,
   mockAddComment,
+  mockCategoriseTicket,
+  mockSuggestTicketReply,
 } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockUseTicket: vi.fn(),
@@ -26,6 +28,8 @@ const {
   mockChangeStatus: vi.fn(),
   mockAssignTicket: vi.fn(),
   mockAddComment: vi.fn(),
+  mockCategoriseTicket: vi.fn(),
+  mockSuggestTicketReply: vi.fn(),
 }));
 
 vi.mock("../lib/auth-context", () => ({
@@ -39,6 +43,11 @@ vi.mock("../features/tickets/hooks/useTickets", () => ({
   useAssignableAgents: mockUseAssignableAgents,
   useAssignTicket: mockUseAssignTicket,
   useAddTicketComment: mockUseAddTicketComment,
+}));
+
+vi.mock("../features/tickets/api/tickets", () => ({
+  categoriseTicket: mockCategoriseTicket,
+  suggestTicketReply: mockSuggestTicketReply,
 }));
 
 afterEach(() => {
@@ -174,5 +183,61 @@ describe("Ticket detail page", () => {
       "agent-2",
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
+  });
+
+  it("shows AI actions to agents and never submits the generated draft", async () => {
+    const user = userEvent.setup();
+    setupTicketPage("Agent");
+    mockSuggestTicketReply.mockImplementation(
+      (_id: string, callbacks: {
+        onDelta: (text: string) => void;
+        onComplete: () => void;
+      }) => {
+        callbacks.onDelta("Thank you for contacting support.");
+        callbacks.onComplete();
+        return Promise.resolve();
+      }
+    );
+    renderTicketDetail();
+
+    expect(screen.getByRole("button", { name: "Suggest Reply" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Suggest Reply" }));
+
+    expect(screen.getByLabelText("AI-generated draft")).toBeTruthy();
+    expect(
+      (screen.getByLabelText("AI-generated draft") as HTMLTextAreaElement).value
+    ).toBe("Thank you for contacting support.");
+    expect(mockAddComment).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", { name: "Insert draft into comment" })
+    );
+    expect(
+      (screen.getByLabelText("Add a comment") as HTMLTextAreaElement).value
+    ).toBe("Thank you for contacting support.");
+  });
+
+  it("hides AI actions from customers", () => {
+    setupTicketPage("Customer");
+    renderTicketDetail();
+
+    expect(screen.queryByRole("button", { name: "Suggest Reply" })).toBeNull();
+  });
+
+  it("displays categorisation suggestions without changing ticket data", async () => {
+    const user = userEvent.setup();
+    setupTicketPage("Agent");
+    renderTicketDetail();
+    mockCategoriseTicket.mockResolvedValue({
+      category: "Account",
+      priority: "High",
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Auto-categorise + Priority" })
+    );
+
+    expect(await screen.findByText("Account")).toBeTruthy();
+    expect(screen.getAllByText("High").length).toBeGreaterThan(0);
   });
 });

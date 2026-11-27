@@ -12,8 +12,13 @@ import {
   getComments,
   postComment,
 } from "../controllers/comment.controller";
+import {
+  postAiCategorise,
+  postAiSuggestReply,
+} from "../controllers/ai.controller";
 
-import { requireAuth } from "../middleware/auth.middleware";
+import { requireAuth, requireRole } from "../middleware/auth.middleware";
+import { Role } from "database";
 
 const router = Router();
 
@@ -25,6 +30,16 @@ router.get("/", getTickets);
 router.post("/", postTicket);
 router.get("/:id", getTicket);
 router.patch("/:id", patchTicket);
+router.post(
+  "/:id/ai/suggest-reply",
+  requireRole(Role.Agent, Role.Admin),
+  postAiSuggestReply
+);
+router.post(
+  "/:id/ai/categorise",
+  requireRole(Role.Agent, Role.Admin),
+  postAiCategorise
+);
 
 // Comment routes
 router.get("/:id/comments", getComments);

@@ -1,5 +1,10 @@
 
-import { apiRequest, apiRequestWithMeta } from "../../../lib/api-client";
+import {
+  apiRequest,
+  apiRequestWithMeta,
+  streamApiRequest,
+  type StreamApiCallbacks,
+} from "../../../lib/api-client";
 
 export type TicketStatus = "Open" | "Closed" | "Pending";
 export type TicketPriority = "Low" | "Medium" | "High";
@@ -60,6 +65,25 @@ export interface TicketListResponse {
     total: number;
     totalPages: number;
   };
+}
+
+export type AiCategory =
+  | "Technical"
+  | "Billing"
+  | "Account"
+  | "General"
+  | "Other";
+
+export interface CategoriseTicketSuggestion {
+  category: AiCategory;
+  priority: TicketPriority;
+}
+
+export interface SuggestReplyStreamCallbacks {
+  onDelta: (text: string) => void;
+  onComplete: () => void;
+  onError: (code: string, message: string) => void;
+  onInterrupted: () => void;
 }
 
 export async function getTickets(
@@ -155,5 +179,25 @@ export function createTicketComment(
       method: "POST",
       body: JSON.stringify(input),
     }
+  );
+}
+
+export async function categoriseTicket(
+  id: string
+): Promise<CategoriseTicketSuggestion> {
+  return apiRequest<CategoriseTicketSuggestion>(
+    `/tickets/${encodeURIComponent(id)}/ai/categorise`,
+    { method: "POST" }
+  );
+}
+
+export async function suggestTicketReply(
+  id: string,
+  callbacks: StreamApiCallbacks
+): Promise<void> {
+  await streamApiRequest(
+    `/tickets/${encodeURIComponent(id)}/ai/suggest-reply`,
+    callbacks,
+    { method: "POST" }
   );
 }

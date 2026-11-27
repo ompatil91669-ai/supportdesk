@@ -6,6 +6,12 @@ import {
   type MouseEvent,
 } from "react";
 import { Navigate } from "react-router-dom";
+import Badge from "../components/Badge";
+import type { BadgeVariant } from "../components/Badge";
+import Button from "../components/Button";
+import Input from "../components/Input";
+import Modal from "../components/Modal";
+import Table, { type TableColumn } from "../components/Table";
 import {
   useCreateManagedUser,
   useDeleteManagedUser,
@@ -31,6 +37,11 @@ const emptyForm: ManagedUserForm = {
 };
 
 const roles: UserRole[] = ["Customer", "Agent", "Admin"];
+const roleBadgeVariant: Record<UserRole, BadgeVariant> = {
+  Customer: "customer",
+  Agent: "agent",
+  Admin: "admin",
+};
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
@@ -50,7 +61,6 @@ export default function AdminUsersPage() {
   const formTriggerRef = useRef<HTMLButtonElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const formWasOpenRef = useRef(false);
-  const deleteDialogRef = useRef<HTMLDialogElement>(null);
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
   const directoryHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -63,18 +73,6 @@ export default function AdminUsersPage() {
     }
     formWasOpenRef.current = formOpen;
   }, [formOpen]);
-
-  useEffect(() => {
-    const dialog = deleteDialogRef.current;
-    if (!dialog) return;
-
-    if (deleteTarget && !dialog.open) {
-      dialog.showModal();
-      deleteCancelRef.current?.focus();
-    } else if (!deleteTarget && dialog.open) {
-      dialog.close();
-    }
-  }, [deleteTarget]);
 
   if (user?.role !== "Admin") {
     return <Navigate to="/dashboard" replace />;
@@ -169,6 +167,71 @@ export default function AdminUsersPage() {
     }
   }
 
+  const userColumns: TableColumn<ManagedUser>[] = [
+    {
+      key: "user",
+      header: "User",
+      render: (managedUser) => (
+        <div className="user-cell">
+          <span className="avatar-token" aria-hidden="true">
+            {managedUser.name.trim().charAt(0).toUpperCase()}
+          </span>
+          <span>
+            <strong>{managedUser.name}</strong>
+            <small>{managedUser.email}</small>
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "role",
+      header: "Role",
+      render: (managedUser) => (
+        <Badge variant={roleBadgeVariant[managedUser.role]}>
+          {managedUser.role}
+        </Badge>
+      ),
+    },
+    {
+      key: "joined",
+      header: "Joined",
+      render: (managedUser) =>
+        new Date(managedUser.createdAt).toLocaleDateString(),
+    },
+    {
+      key: "actions",
+      header: <span className="visually-hidden">Actions</span>,
+      className: "table-actions-cell",
+      render: (managedUser) => (
+        <div className="row-actions">
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={(event) => openEditForm(managedUser, event)}
+            disabled={managedUser.id === user.id}
+            aria-label={`Edit ${managedUser.name}`}
+          >
+            Edit
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            size="small"
+            onClick={(event) => {
+              deleteTriggerRef.current = event.currentTarget;
+              setDeleteTarget(managedUser);
+            }}
+            disabled={managedUser.id === user.id}
+            aria-label={`Delete ${managedUser.name}`}
+          >
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <main className="page-main">
       <div className="page-stack">
@@ -180,13 +243,12 @@ export default function AdminUsersPage() {
               Create accounts, update access levels, and manage your support team.
             </p>
           </div>
-          <button
+          <Button
             type="button"
-            className="button button-primary"
             onClick={openCreateForm}
           >
             <span aria-hidden="true">＋</span> Add user
-          </button>
+          </Button>
         </section>
 
         <section className="stats-grid" aria-label="Account totals">
@@ -214,50 +276,46 @@ export default function AdminUsersPage() {
                 <p className="page-kicker">{editingUser ? "Edit account" : "New account"}</p>
                 <h2>{editingUser ? "Update user details" : "Create a user"}</h2>
               </div>
-              <button
+              <Button
                 type="button"
-                className="button button-quiet"
+                variant="secondary"
+                size="small"
+                className="button-quiet"
                 onClick={() => setFormOpen(false)}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
             <form className="user-form" onSubmit={submitUser}>
-              <label className="field">
-                <span>Full name</span>
-                <input
-                  ref={nameInputRef}
-                  autoComplete="name"
-                  required
-                  minLength={2}
-                  maxLength={100}
-                  value={form.name}
-                  onChange={(event) => setForm({ ...form, name: event.target.value })}
-                />
-              </label>
-              <label className="field">
-                <span>Email address</span>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={form.email}
-                  onChange={(event) => setForm({ ...form, email: event.target.value })}
-                />
-              </label>
+              <Input
+                label="Full name"
+                ref={nameInputRef}
+                autoComplete="name"
+                required
+                minLength={2}
+                maxLength={100}
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+              />
+              <Input
+                label="Email address"
+                type="email"
+                autoComplete="email"
+                required
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+              />
               {!editingUser && (
-                <label className="field">
-                  <span>Temporary password</span>
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    maxLength={128}
-                    value={form.password}
-                    onChange={(event) => setForm({ ...form, password: event.target.value })}
-                  />
-                </label>
+                <Input
+                  label="Temporary password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                />
               )}
               <label className="field">
                 <span>Role</span>
@@ -276,16 +334,16 @@ export default function AdminUsersPage() {
               </label>
               {formError && <p className="notice notice-error form-message" role="alert">{formError}</p>}
               <div className="form-actions">
-                <button className="button button-primary" disabled={isSaving}>
+                <Button loading={isSaving}>
                   {isSaving ? "Saving..." : editingUser ? "Save changes" : "Create account"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="button button-secondary"
+                  variant="secondary"
                   onClick={() => setFormOpen(false)}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </section>
@@ -301,9 +359,8 @@ export default function AdminUsersPage() {
             </div>
             <div className="directory-filters">
               <label className="visually-hidden" htmlFor="user-search">Search users</label>
-              <input
+              <Input
                 id="user-search"
-                className="control-input"
                 type="search"
                 placeholder="Search name or email"
                 value={search}
@@ -327,119 +384,52 @@ export default function AdminUsersPage() {
           ) : usersQuery.isError ? (
             <div className="notice notice-error" role="alert">
               <p>{usersQuery.error.message}</p>
-              <button className="button button-secondary" onClick={() => void usersQuery.refetch()}>
+              <Button variant="secondary" onClick={() => void usersQuery.refetch()}>
                 Try again
-              </button>
+              </Button>
             </div>
-          ) : filteredUsers.length === 0 ? (
-            <p className="empty-state">No users match these filters.</p>
           ) : (
-            <div className="table-scroll">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th scope="col">User</th>
-                    <th scope="col">Role</th>
-                    <th scope="col">Joined</th>
-                    <th scope="col"><span className="visually-hidden">Actions</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((managedUser) => (
-                    <tr key={managedUser.id}>
-                      <td>
-                        <div className="user-cell">
-                          <span className="avatar-token" aria-hidden="true">
-                            {managedUser.name.trim().charAt(0).toUpperCase()}
-                          </span>
-                          <span><strong>{managedUser.name}</strong><small>{managedUser.email}</small></span>
-                        </div>
-                      </td>
-                      <td><span className={`role-badge role-${managedUser.role.toLowerCase()}`}>{managedUser.role}</span></td>
-                      <td>{new Date(managedUser.createdAt).toLocaleDateString()}</td>
-                      <td>
-                        <div className="row-actions">
-                          <button
-                            type="button"
-                            className="button button-small button-secondary"
-                            onClick={(event) => openEditForm(managedUser, event)}
-                            disabled={managedUser.id === user.id}
-                            aria-label={`Edit ${managedUser.name}`}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="button button-small button-danger"
-                            onClick={(event) => {
-                              deleteTriggerRef.current = event.currentTarget;
-                              setDeleteTarget(managedUser);
-                            }}
-                            disabled={managedUser.id === user.id}
-                            aria-label={`Delete ${managedUser.name}`}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table
+              columns={userColumns}
+              data={filteredUsers}
+              getRowKey={(managedUser) => managedUser.id}
+              emptyState="No users match these filters."
+            />
           )}
         </section>
       </div>
 
-      <dialog
-        ref={deleteDialogRef}
-        className="confirm-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="delete-user-title"
-        aria-describedby="delete-user-description"
-        onClose={() => {
-          if (deleteTriggerRef.current?.isConnected) {
-            deleteTriggerRef.current.focus();
-          } else {
-            directoryHeadingRef.current?.focus();
-          }
-          if (deleteTarget) {
-            setDeleteTarget(null);
-          }
-        }}
-      >
-        {deleteTarget && (
+      <Modal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title={deleteTarget ? `Delete ${deleteTarget.name}?` : "Delete account"}
+        description="This permanently removes the account. Tickets stay in the system, are unassigned from this account, and comments are kept with the author marked as deleted."
+        alertDialog
+        initialFocusRef={deleteCancelRef}
+        fallbackFocusRef={directoryHeadingRef}
+        footer={
           <>
-            <span className="dialog-warning" aria-hidden="true">!</span>
-            <h2 id="delete-user-title">Delete {deleteTarget.name}?</h2>
-            <p id="delete-user-description">
-              This permanently removes the account. Tickets stay in the system,
-              are unassigned from this account, and comments are kept with the
-              author marked as deleted.
-            </p>
-            <div className="form-actions">
-              <button
-                ref={deleteCancelRef}
-                className="button button-secondary"
-                onClick={() => {
-                  deleteDialogRef.current?.close();
-                  setDeleteTarget(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="button button-danger"
-                disabled={deleteUser.isPending}
-                onClick={() => void confirmDelete()}
-              >
-                {deleteUser.isPending ? "Deleting…" : "Delete account"}
-              </button>
-            </div>
+            <Button
+              ref={deleteCancelRef}
+              type="button"
+              variant="secondary"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={deleteUser.isPending}
+              onClick={() => void confirmDelete()}
+            >
+              {deleteUser.isPending ? "Deleting…" : "Delete account"}
+            </Button>
           </>
-        )}
-      </dialog>
+        }
+      >
+        <span className="dialog-warning" aria-hidden="true">!</span>
+      </Modal>
     </main>
   );
 }

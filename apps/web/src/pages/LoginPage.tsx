@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
+import Button from "../components/Button";
+import Input from "../components/Input";
 import { useAuth } from "../lib/auth-context";
 import { ApiError } from "../lib/api-client";
 
@@ -46,159 +48,122 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-screen relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10 sm:px-8">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-blue-600/30 blur-3xl" />
-        <div className="absolute -bottom-48 -right-32 h-[32rem] w-[32rem] rounded-full bg-fuchsia-600/25 blur-3xl" />
-      </div>
-
-      <div className="login-card relative grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/10 bg-white lg:grid-cols-[1fr_1.05fr]">
-        <section className="relative hidden min-h-[680px] flex-col justify-between overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-700 to-violet-800 p-10 text-white lg:flex">
-          <div aria-hidden="true" className="absolute inset-0 opacity-30">
-            <div className="absolute -right-20 top-28 h-72 w-72 rounded-full border-[40px] border-white/20" />
-            <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full border-[52px] border-cyan-300/30" />
+    <main className="login-screen">
+      <div className="login-layout">
+        <section className="login-intro" aria-labelledby="login-brand-heading">
+          <div className="login-brand">
+            <span aria-hidden="true" className="login-brand-mark">S</span>
+            <span>SupportDesk</span>
           </div>
 
-          <div className="relative">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-xl font-black ring-1 ring-white/25 backdrop-blur">
-              S
-            </div>
-            <p className="mt-7 text-sm font-bold uppercase tracking-[0.24em] text-cyan-200">
-              SupportDesk
-            </p>
-            <h1 className="mt-4 max-w-md text-5xl font-black leading-[1.08] tracking-tight">
-              Great support starts with a conversation.
-            </h1>
-            <p className="mt-5 max-w-sm text-base leading-7 text-blue-100">
+          <svg
+            aria-hidden="true"
+            className="support-illustration"
+            viewBox="0 0 480 270"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="238" cy="134" r="112" fill="#EDE9FE" />
+            <circle cx="238" cy="134" r="90" stroke="#C4B5FD" strokeWidth="2" strokeDasharray="5 8" />
+            <path d="M142 184c18-21 39-30 65-30h61c29 0 51 9 69 30v28H142v-28Z" fill="#C4B5FD" />
+            <rect x="176" y="58" width="157" height="112" rx="18" fill="white" stroke="#DDD6FE" strokeWidth="3" />
+            <path d="M197 85h115M197 103h78M197 121h93" stroke="#A78BFA" strokeWidth="8" strokeLinecap="round" />
+            <circle cx="302" cy="153" r="17" fill="#7C3AED" />
+            <path d="m295 153 5 5 10-11" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="136" cy="128" r="30" fill="#F3EEFF" stroke="#DDD6FE" strokeWidth="3" />
+            <path d="M123 127c0-7 6-13 13-13s13 6 13 13v11h-7l-6-5-6 5h-7v-11Z" fill="#8B5CF6" />
+            <path d="M119 126v-3a17 17 0 0 1 34 0v3M119 127h5v11h-5a4 4 0 0 1-4-4v-3a4 4 0 0 1 4-4ZM153 127h-5v11h5a4 4 0 0 0 4-4v-3a4 4 0 0 0-4-4Z" stroke="#5B21B6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="355" cy="82" r="18" fill="#DDD6FE" />
+            <path d="M348 82h14M355 75v14" stroke="#6D28D9" strokeWidth="3" strokeLinecap="round" />
+            <circle cx="353" cy="192" r="7" fill="#A78BFA" />
+            <circle cx="164" cy="62" r="6" fill="#C4B5FD" />
+          </svg>
+
+          <div className="login-copy">
+            <h1 id="login-brand-heading">Great support starts with a conversation.</h1>
+            <p>
               Keep every request, reply, and resolution in one calm, organized
               workspace.
             </p>
           </div>
 
-          <div className="relative grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
-              <p className="text-2xl font-bold">Customers</p>
-              <p className="mt-1 text-sm text-blue-100">Get help, stay updated</p>
-            </div>
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
-              <p className="text-2xl font-bold">Agents</p>
-              <p className="mt-1 text-sm text-blue-100">Respond, resolve, repeat</p>
-            </div>
+          <div className="login-audience">
+            <article>
+              <strong>Customers</strong>
+              <p>Get help, stay updated</p>
+            </article>
+            <article>
+              <strong>Agents</strong>
+              <p>Respond, resolve, repeat</p>
+            </article>
           </div>
         </section>
 
-        <section className="flex items-center justify-center bg-gradient-to-br from-white via-slate-50 to-indigo-50/70 px-6 py-10 sm:px-10 lg:px-12">
-          <div className="w-full max-w-md">
-            <div className="mb-8 lg:hidden">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 text-xl font-black text-white shadow-lg shadow-blue-500/25">
-                S
-              </div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-600">
-                SupportDesk
-              </p>
-            </div>
+        <section className="login-card" aria-labelledby="login-title">
+          <header>
+            <p className="login-eyebrow">Welcome back</p>
+            <h2 id="login-title">Sign in to your workspace</h2>
+            <p className="login-card-intro">
+              Sign in with your account and we’ll open the right workspace.
+            </p>
+          </header>
 
+          <div className="login-routing">
+            <span className="login-routing-icon" aria-hidden="true">✓</span>
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-600">
-                Welcome back
-              </p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                Sign in to your workspace
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Sign in with your account and we’ll open the right workspace.
-              </p>
+              <strong>Automatic account routing</strong>
+              <p>Your saved account role decides which workspace opens.</p>
             </div>
+          </div>
 
-            <div className="mt-7 flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/80 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-lg font-black text-white">
-                ✓
-              </span>
-              <div>
-                <p className="font-bold text-slate-900">Automatic account routing</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Your saved account role decides which workspace opens.
-                </p>
-              </div>
-            </div>
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            noValidate
+            className="login-form"
+          >
+            <Input
+              label="Email address"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              error={errors.email?.message}
+              {...register("email", {
+                required: "Email is required.",
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: "Enter a valid email address.",
+                },
+              })}
+            />
+            <Input
+              label="Password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              error={errors.password?.message}
+              {...register("password", {
+                required: "Password is required.",
+              })}
+            />
 
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              noValidate
-              className="mt-7 space-y-5"
+            {serverError && (
+              <p role="alert" className="login-server-error">
+                {serverError}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              loading={isSubmitting}
+              className="login-submit"
             >
-                <div>
-                  <label htmlFor="email" className="mb-2 block text-sm font-semibold text-slate-700">
-                    Email address
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    aria-invalid={!!errors.email}
-                    aria-describedby={errors.email ? "email-error" : undefined}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-950 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
-                    {...register("email", {
-                      required: "Email is required.",
-                      pattern: {
-                        value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                        message: "Enter a valid email address.",
-                      },
-                    })}
-                  />
-                  {errors.email && (
-                    <p id="email-error" role="alert" className="mt-2 text-sm text-red-600">
-                      {errors.email.message}
-                    </p>
-                  )}
-                </div>
+              {isSubmitting ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
 
-                <div>
-                  <label htmlFor="password" className="mb-2 block text-sm font-semibold text-slate-700">
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="Enter your password"
-                    aria-invalid={!!errors.password}
-                    aria-describedby={errors.password ? "password-error" : undefined}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-950 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
-                    {...register("password", {
-                      required: "Password is required.",
-                    })}
-                  />
-                  {errors.password && (
-                    <p id="password-error" role="alert" className="mt-2 text-sm text-red-600">
-                      {errors.password.message}
-                    </p>
-                  )}
-                </div>
-
-                {serverError && (
-                  <div
-                    role="alert"
-                    className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                  >
-                    {serverError}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-3.5 font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSubmitting ? "Signing in..." : "Sign In"}
-                </button>
-              </form>
-
-              <p className="mt-6 text-center text-xs leading-5 text-slate-500">
-                Your account role and access are verified securely when you sign in.
-              </p>
-            </div>
+          <p className="login-verification">
+            Your account role and access are verified securely when you sign in.
+          </p>
         </section>
       </div>
     </main>

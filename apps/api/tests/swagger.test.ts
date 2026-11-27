@@ -10,6 +10,8 @@ describe("createSwaggerDocument", () => {
       "/health",
       "/tickets",
       "/tickets/{id}",
+      "/tickets/{id}/ai/categorise",
+      "/tickets/{id}/ai/suggest-reply",
       "/tickets/{id}/comments",
       "/users",
       "/users/agents",

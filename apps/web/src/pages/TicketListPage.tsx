@@ -1,10 +1,69 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import Badge from "../components/Badge";
+import type { BadgeVariant } from "../components/Badge";
+import Button from "../components/Button";
+import Input from "../components/Input";
+import Table, { type TableColumn } from "../components/Table";
 import { useTickets } from "../features/tickets/hooks/useTickets";
 import type {
+  Ticket,
   TicketPriority,
   TicketStatus,
 } from "../features/tickets/api/tickets";
+
+const statusBadgeVariant: Record<TicketStatus, BadgeVariant> = {
+  Open: "open",
+  Pending: "pending",
+  Closed: "closed",
+};
+
+const priorityBadgeVariant: Record<TicketPriority, BadgeVariant> = {
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+};
+
+const ticketColumns: TableColumn<Ticket>[] = [
+  {
+    key: "ticket",
+    header: "Ticket",
+    render: (ticket) => (
+      <Link
+        to={`/tickets/${encodeURIComponent(ticket.id)}`}
+        className="ticket-link"
+        aria-label={`Open ticket ${ticket.id}`}
+      >
+        {ticket.id}
+      </Link>
+    ),
+  },
+  { key: "customer", header: "Customer", render: (ticket) => <span className="table-strong">{ticket.name}</span> },
+  { key: "email", header: "Email", render: (ticket) => ticket.email },
+  {
+    key: "status",
+    header: "Status",
+    render: (ticket) => (
+      <Badge variant={statusBadgeVariant[ticket.status]}>
+        {ticket.status}
+      </Badge>
+    ),
+  },
+  {
+    key: "priority",
+    header: "Priority",
+    render: (ticket) => (
+      <Badge variant={priorityBadgeVariant[ticket.priority]}>
+        {ticket.priority}
+      </Badge>
+    ),
+  },
+  {
+    key: "created",
+    header: "Created",
+    render: (ticket) => new Date(ticket.createdAt).toLocaleDateString(),
+  },
+];
 
 export default function TicketListPage() {
   const [page, setPage] = useState(1);
@@ -38,19 +97,17 @@ export default function TicketListPage() {
         </section>
 
         <section className="surface-card filter-card" aria-label="Ticket filters">
-          <label className="filter-field">
-            <span>Search</span>
-            <input
-              aria-label="Search tickets"
-              type="search"
-              placeholder="Name, email, or ticket ID"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
-            />
-          </label>
+          <Input
+            wrapperClassName="filter-field"
+            label="Search"
+            type="search"
+            placeholder="Name, email, or ticket ID"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+          />
           <label className="filter-field">
             <span>Status</span>
             <select
@@ -90,9 +147,9 @@ export default function TicketListPage() {
         ) : isError ? (
           <div role="alert" className="notice notice-error">
             <span>{error instanceof Error ? error.message : "Unable to load tickets."}</span>
-            <button className="button button-secondary" onClick={() => void refetch()}>
+            <Button variant="secondary" onClick={() => void refetch()}>
               Try again
-            </button>
+            </Button>
           </div>
         ) : (
           <section className="surface-card ticket-table-card">
@@ -103,74 +160,34 @@ export default function TicketListPage() {
               </div>
               {isFetching && <span className="updating-indicator">Updating…</span>}
             </div>
-            {tickets.length === 0 ? (
-              <p className="empty-state">No tickets match these filters.</p>
-            ) : (
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Ticket</th>
-                      <th scope="col">Customer</th>
-                      <th scope="col">Email</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Priority</th>
-                      <th scope="col">Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tickets.map((ticket) => (
-                      <tr key={ticket.id}>
-                        <td>
-                          <Link
-                            to={`/tickets/${encodeURIComponent(ticket.id)}`}
-                            className="ticket-link"
-                            aria-label={`Open ticket ${ticket.id}`}
-                          >
-                            {ticket.id}
-                          </Link>
-                        </td>
-                        <td className="table-strong">{ticket.name}</td>
-                        <td>{ticket.email}</td>
-                        <td>
-                          <span className={`status-tag status-${ticket.status.toLowerCase()}`}>
-                            {ticket.status}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`priority-tag priority-${ticket.priority.toLowerCase()}`}>
-                            {ticket.priority}
-                          </span>
-                        </td>
-                        <td>{new Date(ticket.createdAt).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Table
+              columns={ticketColumns}
+              data={tickets}
+              getRowKey={(ticket) => ticket.id}
+              emptyState="No tickets match these filters."
+            />
             <div className="pagination-bar">
               <p>
                 Page <strong>{page}</strong> of <strong>{totalPages || 1}</strong>
                 {data && <span> · {data.meta.total} results</span>}
               </p>
               <div className="row-actions">
-                <button
-                  className="button button-secondary"
+                <Button
+                  variant="secondary"
                   aria-label="Previous page"
                   disabled={page <= 1 || isFetching}
                   onClick={() => setPage((current) => current - 1)}
                 >
                   ← Previous
-                </button>
-                <button
-                  className="button button-secondary"
+                </Button>
+                <Button
+                  variant="secondary"
                   aria-label="Next page"
                   disabled={page >= totalPages || isFetching}
                   onClick={() => setPage((current) => current + 1)}
                 >
                   Next →
-                </button>
+                </Button>
               </div>
             </div>
           </section>

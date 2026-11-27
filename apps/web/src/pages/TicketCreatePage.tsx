@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import Button from "../components/Button";
+import Input from "../components/Input";
 import {
   createTicketComment,
   type TicketPriority,
@@ -88,26 +90,14 @@ export default function TicketCreatePage() {
           </div>
 
           <form className="ticket-create-form" onSubmit={submitTicket}>
-            <label className="field">
-              <span>Name</span>
-              <input
-                aria-label="Name"
-                value={customer.name}
-                readOnly
-                className="control-input"
-              />
-            </label>
+            <Input label="Name" value={customer.name} readOnly />
 
-            <label className="field">
-              <span>Email</span>
-              <input
-                aria-label="Email"
-                type="email"
-                value={customer.email}
-                readOnly
-                className="control-input"
-              />
-            </label>
+            <Input
+              label="Email"
+              type="email"
+              value={customer.email}
+              readOnly
+            />
 
             <label className="field">
               <span>Priority</span>
@@ -153,19 +143,19 @@ export default function TicketCreatePage() {
               </Link>
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={
                 isSubmitting || Boolean(createdTicketId) || !description.trim()
               }
-              className="button button-primary"
+              loading={isSubmitting}
             >
               {isSubmitting
                 ? "Creating..."
                 : createdTicketId
                   ? "Ticket created"
                   : "Create Ticket"}
-            </button>
+            </Button>
           </form>
         </section>
       </div>

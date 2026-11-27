@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -32,31 +32,8 @@ vi.mock("../features/users/hooks/useManagedUsers", () => ({
   useDeleteManagedUser: mockUseDeleteManagedUser,
 }));
 
-const nativeShowModal = HTMLDialogElement.prototype.showModal;
-const nativeClose = HTMLDialogElement.prototype.close;
-
-beforeEach(() => {
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-    this.dispatchEvent(new Event("close"));
-  };
-});
-
 afterEach(() => {
   cleanup();
-  if (nativeShowModal) {
-    HTMLDialogElement.prototype.showModal = nativeShowModal;
-  } else {
-    Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
-  }
-  if (nativeClose) {
-    HTMLDialogElement.prototype.close = nativeClose;
-  } else {
-    Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
-  }
   vi.clearAllMocks();
 });
 
@@ -166,12 +143,38 @@ describe("Admin user management", () => {
     await user.click(screen.getByRole("button", { name: "Delete Jamie Customer" }));
     const dialog = screen.getByRole("alertdialog");
     expect(dialog.textContent).toContain("comments are kept");
-    expect(dialog).toHaveProperty("open", true);
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(document.activeElement).toBe(
       screen.getByRole("button", { name: "Cancel" })
     );
     await user.click(screen.getByRole("button", { name: "Delete account" }));
 
     expect(mockDeleteUser).toHaveBeenCalledWith("customer-1");
+  });
+
+  it("cancels deletion and restores focus to the selected user", async () => {
+    const user = userEvent.setup();
+    setupAdminPage();
+    renderPage();
+
+    const deleteButton = screen.getByRole("button", { name: "Delete Jamie Customer" });
+    await user.click(deleteButton);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(mockDeleteUser).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(deleteButton);
+  });
+
+  it("closes the confirmation with Escape without deleting", async () => {
+    const user = userEvent.setup();
+    setupAdminPage();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Delete Jamie Customer" }));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 });

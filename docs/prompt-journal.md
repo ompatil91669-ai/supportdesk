@@ -344,3 +344,31 @@ Learned to keep OpenAPI contracts tied to real routes and validators, test
 service business rules independently from Prisma, and require explicit
 test-database configuration instead of silently reusing development
 credentials or data.
+
+## Entry 16: Gemini AI Features Inside SupportDesk
+
+**Date:** 24 November 2026
+
+**Context:** Implementing streamed reply suggestions and validated
+category/priority suggestions using the Google Gemini Developer API.
+
+**Prompt Used:**
+"Inspect the existing project, prepare and implement the two approved AI
+features using Gemini Free Tier, preserve protected ports and URLs, use mocked
+provider tests, and do not configure or expose the API key during chat."
+
+**Implementation Summary:**
+- Added Agent/Admin-only endpoints for streamed reply drafts and ticket
+  categorisation.
+- Added versioned backend prompt files and strict Zod validation.
+- Kept AI suggestions separate from ticket status and database data.
+- Added a streamed frontend helper and AI controls to the ticket detail page.
+- Replaced the unused OpenAI dependency with `@google/genai`.
+
+**Security and Verification:**
+- The Gemini key remains backend-only and is not stored in frontend files.
+- Public comments are the only comment context sent for reply generation.
+- Customer email addresses and internal comments are excluded from AI prompts.
+- Provider calls are mocked in automated tests.
+- No live request or key configuration was performed until the user supplied
+  approval and local setup instructions.

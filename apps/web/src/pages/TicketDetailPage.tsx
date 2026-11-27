@@ -1,7 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
+import Badge from "../components/Badge";
+import type { BadgeVariant } from "../components/Badge";
+import Button from "../components/Button";
 import {
   type TicketStatus,
+  categoriseTicket,
+  suggestTicketReply,
+  type CategoriseTicketSuggestion,
 } from "../features/tickets/api/tickets";
 import {
   useAddTicketComment,
@@ -14,6 +20,16 @@ import {
 import { useAuth } from "../lib/auth-context";
 
 const ticketStatuses: TicketStatus[] = ["Open", "Pending", "Closed"];
+const statusBadgeVariant: Record<TicketStatus, BadgeVariant> = {
+  Open: "open",
+  Pending: "pending",
+  Closed: "closed",
+};
+const priorityBadgeVariant = {
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+} as const;
 
 export default function TicketDetailPage() {
   const { id = "" } = useParams();
@@ -30,11 +46,67 @@ export default function TicketDetailPage() {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [isInternal, setIsInternal] = useState(false);
+  const [aiDraft, setAiDraft] = useState("");
+  const [aiDraftStatus, setAiDraftStatus] = useState<
+    "idle" | "loading" | "complete" | "error" | "interrupted"
+  >("idle");
+  const [aiDraftError, setAiDraftError] = useState("");
+  const [aiSuggestion, setAiSuggestion] =
+    useState<CategoriseTicketSuggestion | null>(null);
+  const [aiSuggestionStatus, setAiSuggestionStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [aiSuggestionError, setAiSuggestionError] = useState("");
   const ticket = ticketQuery.data;
   const comments = commentsQuery.data ?? [];
   const visibleComments = isStaff
     ? comments
     : comments.filter((comment) => !comment.isInternal);
+
+  function generateDraftReply() {
+    if (aiDraftStatus === "loading") return;
+
+    setAiDraft("");
+    setAiDraftError("");
+    setAiDraftStatus("loading");
+
+    void suggestTicketReply(id, {
+      onDelta: (text) => setAiDraft((current) => current + text),
+      onComplete: () => setAiDraftStatus("complete"),
+      onError: (_code, message) => {
+        setAiDraftError(message);
+        setAiDraftStatus("error");
+      },
+      onInterrupted: () => setAiDraftStatus("interrupted"),
+    });
+  }
+
+  function insertDraftReply() {
+    if (!aiDraft.trim()) return;
+    if (content.trim() && !window.confirm("Replace your unsent comment with the AI draft?")) {
+      return;
+    }
+    setContent(aiDraft);
+  }
+
+  async function generateCategorisation() {
+    if (aiSuggestionStatus === "loading") return;
+    setAiSuggestion(null);
+    setAiSuggestionError("");
+    setAiSuggestionStatus("loading");
+
+    try {
+      setAiSuggestion(await categoriseTicket(id));
+      setAiSuggestionStatus("idle");
+    } catch (error) {
+      setAiSuggestionError(
+        error instanceof Error
+          ? error.message
+          : "Unable to categorise this ticket."
+      );
+      setAiSuggestionStatus("error");
+    }
+  }
 
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,11 +174,19 @@ export default function TicketDetailPage() {
             </div>
             <div>
               <dt className="font-bold uppercase tracking-wide text-slate-500">Priority</dt>
-              <dd>{ticket.priority}</dd>
+              <dd>
+                <Badge variant={priorityBadgeVariant[ticket.priority]}>
+                  {ticket.priority}
+                </Badge>
+              </dd>
             </div>
             <div>
               <dt className="font-bold uppercase tracking-wide text-slate-500">Status</dt>
-              <dd>{ticket.status}</dd>
+              <dd>
+                <Badge variant={statusBadgeVariant[ticket.status]}>
+                  {ticket.status}
+                </Badge>
+              </dd>
             </div>
             {isAdmin && (
               <div>
@@ -147,17 +227,17 @@ export default function TicketDetailPage() {
                   ))}
                 </select>
               </label>
-              <button
+              <Button
                 type="submit"
                 disabled={
                   changeStatus.isPending ||
                   !selectedStatus ||
                   selectedStatus === ticket.status
                 }
-                className="rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 font-bold text-white shadow-md shadow-violet-500/20 disabled:opacity-50"
+                variant="primary"
               >
                 {changeStatus.isPending ? "Saving..." : "Update status"}
-              </button>
+              </Button>
               {changeStatus.isError && (
                 <p role="alert" className="text-sm text-red-700">
                   {changeStatus.error.message}
@@ -196,7 +276,7 @@ export default function TicketDetailPage() {
                   ))}
                 </select>
               </label>
-              <button
+              <Button
                 type="submit"
                 disabled={
                   assignTicket.isPending ||
@@ -205,10 +285,10 @@ export default function TicketDetailPage() {
                   (selectedAssigneeId ?? ticket.assigneeId ?? "") ===
                     (ticket.assigneeId ?? "")
                 }
-                className="rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 px-4 py-2.5 font-bold text-white shadow-md shadow-sky-500/20 disabled:opacity-50"
+                variant="primary"
               >
                 {assignTicket.isPending ? "Saving..." : "Save assignment"}
-              </button>
+              </Button>
               {agentsQuery.isError && (
                 <p role="alert" className="text-sm text-red-700">
                   {agentsQuery.error.message}
@@ -268,6 +348,97 @@ export default function TicketDetailPage() {
             </ul>
           )}
 
+          {isStaff && (
+            <div className="mt-6 space-y-4 rounded-2xl border border-violet-200 bg-violet-50/60 p-4 sm:p-5">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={generateDraftReply}
+                  disabled={aiDraftStatus === "loading"}
+                >
+                  {aiDraftStatus === "loading"
+                    ? "Generating draft..."
+                    : "Suggest Reply"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={generateCategorisation}
+                  disabled={aiSuggestionStatus === "loading"}
+                >
+                  {aiSuggestionStatus === "loading"
+                    ? "Categorising..."
+                    : "Auto-categorise + Priority"}
+                </Button>
+              </div>
+
+              {(aiDraftStatus !== "idle" || aiDraft) && (
+                <div className="rounded-xl border border-violet-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-violet-700">
+                    AI-generated draft
+                  </p>
+                  {aiDraftStatus === "loading" && (
+                    <p role="status" className="mt-2 text-sm text-slate-500">
+                      Generating draft...
+                    </p>
+                  )}
+                  {aiDraft && (
+                    <textarea
+                      aria-label="AI-generated draft"
+                      value={aiDraft}
+                      onChange={(event) => setAiDraft(event.target.value)}
+                      rows={5}
+                      className="mt-2 w-full rounded-xl border border-slate-200 p-3"
+                    />
+                  )}
+                  {aiDraftStatus === "complete" && aiDraft && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={insertDraftReply}
+                    >
+                      Insert draft into comment
+                    </Button>
+                  )}
+                  {aiDraftStatus === "error" && (
+                    <p role="alert" className="mt-2 text-sm text-red-700">
+                      {aiDraftError}
+                    </p>
+                  )}
+                  {aiDraftStatus === "interrupted" && (
+                    <p role="alert" className="mt-2 text-sm text-amber-700">
+                      The AI stream was interrupted. Review any text received.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {aiSuggestion && (
+                <div className="rounded-xl border border-sky-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-sky-700">
+                    AI suggestion
+                  </p>
+                  <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="font-bold text-slate-500">Category</dt>
+                      <dd>{aiSuggestion.category}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-bold text-slate-500">Priority</dt>
+                      <dd>{aiSuggestion.priority}</dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
+              {aiSuggestionStatus === "error" && (
+                <p role="alert" className="text-sm text-red-700">
+                  {aiSuggestionError}
+                </p>
+              )}
+            </div>
+          )}
+
           <form className="mt-6 space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 sm:p-5" onSubmit={submitComment}>
             <label className="grid gap-1 text-sm font-medium">
               Add a comment
@@ -291,13 +462,13 @@ export default function TicketDetailPage() {
                 Internal note (visible to agents and admins)
               </label>
             )}
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={addComment.isPending || !content.trim()}
-              className="rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2.5 font-bold text-white shadow-md shadow-indigo-500/20 disabled:opacity-50"
             >
               {addComment.isPending ? "Sending..." : "Send comment"}
-            </button>
+            </Button>
             {addComment.isError && (
               <p role="alert" className="text-sm text-red-700">
                 {addComment.error.message}
