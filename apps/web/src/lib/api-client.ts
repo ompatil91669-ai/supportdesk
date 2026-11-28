@@ -209,7 +209,11 @@ export async function streamApiRequest(
       { ...options, headers }
     );
   } catch {
-    callbacks.onError("NETWORK_ERROR", "Cannot connect to the server.");
+    if (options.signal?.aborted) {
+      callbacks.onInterrupted();
+    } else {
+      callbacks.onError("NETWORK_ERROR", "Cannot connect to the server.");
+    }
     return;
   }
 
@@ -238,8 +242,16 @@ export async function streamApiRequest(
   const decoder = new TextDecoder();
   let buffer = "";
   let completed = false;
+  let failed = false;
+
+  function fail(code: string, message: string) {
+    if (failed || completed) return;
+    failed = true;
+    callbacks.onError(code, message);
+  }
 
   function processEvent(block: string) {
+    if (failed || completed) return;
     let eventName = "message";
     const dataLines: string[] = [];
 
@@ -257,7 +269,7 @@ export async function streamApiRequest(
     try {
       data = JSON.parse(payload);
     } catch {
-      callbacks.onError("INVALID_STREAM", "The AI stream returned invalid data.");
+      fail("INVALID_STREAM", "The AI stream returned invalid data.");
       return;
     }
 
@@ -269,17 +281,24 @@ export async function streamApiRequest(
         typeof data.text === "string"
       ) {
         callbacks.onDelta(data.text);
+      } else {
+        fail("INVALID_STREAM", "The AI stream returned invalid data.");
       }
     } else if (eventName === "complete") {
       completed = true;
       callbacks.onComplete();
     } else if (eventName === "error") {
-      if (typeof data === "object" && data !== null) {
-        const error = data as { code?: string; message?: string };
-        callbacks.onError(
-          error.code ?? "AI_PROVIDER_ERROR",
-          error.message ?? "The AI service is temporarily unavailable."
-        );
+      if (
+        typeof data === "object" &&
+        data !== null &&
+        "code" in data &&
+        typeof data.code === "string" &&
+        "message" in data &&
+        typeof data.message === "string"
+      ) {
+        fail(data.code, data.message);
+      } else {
+        fail("INVALID_STREAM", "The AI stream returned invalid data.");
       }
     }
   }
@@ -294,14 +313,23 @@ export async function streamApiRequest(
       while (separatorIndex >= 0) {
         processEvent(buffer.slice(0, separatorIndex));
         buffer = buffer.slice(separatorIndex + 2);
+        if (failed) break;
         separatorIndex = buffer.indexOf("\n\n");
+      }
+      if (failed) {
+        await reader.cancel();
+        break;
       }
     }
 
-    buffer += decoder.decode();
-    if (buffer.trim()) processEvent(buffer);
-    if (!completed) callbacks.onInterrupted();
+    if (!failed) {
+      buffer += decoder.decode();
+      if (buffer.trim()) processEvent(buffer);
+    }
+    if (!completed && !failed) callbacks.onInterrupted();
   } catch {
-    callbacks.onInterrupted();
+    if (options.signal?.aborted || (!completed && !failed)) {
+      callbacks.onInterrupted();
+    }
   }
 }

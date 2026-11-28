@@ -4,12 +4,13 @@ import { AppError } from "../middleware/errorHandler";
 import { successResponse } from "../utils/response";
 import { env } from "../config/env";
 import { logAiUsage } from "../ai/diagnostics";
+import { AI_LIMITS, AI_MANUAL_FALLBACK_MESSAGE, getSafeStreamPrefix } from "../ai/guardrails";
 import {
   CATEGORISE_TICKET_PROMPT_VERSION,
-} from "../ai/prompts/categorise-ticket.v1";
+} from "../ai/prompts/categorise-ticket.v2";
 import {
   SUGGEST_REPLY_PROMPT_VERSION,
-} from "../ai/prompts/suggest-reply.v1";
+} from "../ai/prompts/suggest-reply.v2";
 import {
   categoriseTicket,
   createSuggestReplyStream,
@@ -17,6 +18,46 @@ import {
   mapProviderError,
   prepareTicketAiContext,
 } from "../services/ai.service";
+
+const AI_REQUEST_TIMEOUT_MS = 60_000;
+
+interface ProviderUsage {
+  total_input_tokens?: number;
+  total_output_tokens?: number;
+  total_thought_tokens?: number;
+  total_tokens?: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getProviderUsage(record: Record<string, unknown>): ProviderUsage | undefined {
+  const metadata = isRecord(record.metadata) ? record.metadata : undefined;
+  const interaction = isRecord(record.interaction) ? record.interaction : undefined;
+  const candidate =
+    metadata && isRecord(metadata.total_usage)
+      ? metadata.total_usage
+      : interaction && isRecord(interaction.usage)
+        ? interaction.usage
+        : undefined;
+
+  if (!candidate) return undefined;
+
+  const usage: ProviderUsage = {};
+  for (const key of [
+    "total_input_tokens",
+    "total_output_tokens",
+    "total_thought_tokens",
+    "total_tokens",
+  ] as const) {
+    const value = candidate[key];
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+      usage[key] = value;
+    }
+  }
+  return usage;
+}
 
 function getTicketId(req: AuthenticatedRequest): string {
   const id = req.params.id;
@@ -28,13 +69,43 @@ function getTicketId(req: AuthenticatedRequest): string {
 
 function getAuthenticatedUser(req: AuthenticatedRequest) {
   if (!req.user) {
-    throw new AppError(
-      401,
-      "UNAUTHORIZED",
-      "Authentication required"
-    );
+    throw new AppError(401, "UNAUTHORIZED", "Authentication required");
   }
   return req.user;
+}
+
+function writeSse(
+  res: Response,
+  event: "delta" | "complete" | "error",
+  data: Record<string, string>
+): void {
+  if (!res.writableEnded) {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  }
+}
+
+function writeSseFailure(res: Response, code: string): void {
+  writeSse(res, "error", {
+    code,
+    message: AI_MANUAL_FALLBACK_MESSAGE,
+  });
+  if (!res.writableEnded) res.end();
+}
+
+function logStreamFailure(
+  startedAt: number,
+  usage: ProviderUsage | undefined,
+  errorCode: string
+): void {
+  logAiUsage({
+    feature: "suggest-reply",
+    promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
+    model: env.GEMINI_MODEL,
+    usage,
+    status: "error",
+    durationMs: Date.now() - startedAt,
+    errorCode,
+  });
 }
 
 export async function postAiCategorise(
@@ -42,16 +113,44 @@ export async function postAiCategorise(
   res: Response,
   next: NextFunction
 ) {
+  const abortController = new AbortController();
+  let clientDisconnected = false;
+  let requestTimedOut = false;
+  const timeout = setTimeout(() => {
+    requestTimedOut = true;
+    abortController.abort();
+  }, AI_REQUEST_TIMEOUT_MS);
+  const handleClose = () => {
+    if (!res.writableEnded) {
+      clientDisconnected = true;
+      abortController.abort();
+    }
+  };
+  res.once("close", handleClose);
+
   try {
     const user = getAuthenticatedUser(req);
-    const context = await prepareTicketAiContext(
-      getTicketId(req),
-      user
-    );
-    const result = await categoriseTicket(context);
-    successResponse(res, result);
+    const context = await prepareTicketAiContext(getTicketId(req), user);
+    const result = await categoriseTicket(context, abortController.signal);
+    if (!clientDisconnected && !res.writableEnded) {
+      successResponse(res, result);
+    }
   } catch (error) {
-    next(error);
+    if (clientDisconnected) return;
+    if (requestTimedOut) {
+      next(
+        new AppError(
+          504,
+          "AI_REQUEST_TIMEOUT",
+          "The AI request timed out. Please try again."
+        )
+      );
+    } else {
+      next(error instanceof AppError ? error : mapProviderError(error));
+    }
+  } finally {
+    clearTimeout(timeout);
+    res.off("close", handleClose);
   }
 }
 
@@ -61,23 +160,36 @@ export async function postAiSuggestReply(
   next: NextFunction
 ) {
   const startedAt = Date.now();
+  const abortController = new AbortController();
   let clientDisconnected = false;
-  let usage:
-    | {
-        total_input_tokens?: number;
-        total_output_tokens?: number;
-        total_thought_tokens?: number;
-        total_tokens?: number;
-      }
-    | undefined;
+  let requestTimedOut = false;
+  let usage: ProviderUsage | undefined;
+  let textReceived = false;
+  let streamCompleted = false;
+  let providerText = "";
+  let sentSafeTextLength = 0;
+
+  const timeout = setTimeout(() => {
+    requestTimedOut = true;
+    abortController.abort();
+  }, AI_REQUEST_TIMEOUT_MS);
+  const handleClose = () => {
+    if (!res.writableEnded) {
+      clientDisconnected = true;
+      abortController.abort();
+    }
+  };
+  res.once("close", handleClose);
 
   try {
     const user = getAuthenticatedUser(req);
-    const context = await prepareTicketAiContext(
-      getTicketId(req),
-      user
+    const context = await prepareTicketAiContext(getTicketId(req), user);
+    const stream = await createSuggestReplyStream(
+      context,
+      abortController.signal
     );
-    const stream = await createSuggestReplyStream(context);
+
+    if (clientDisconnected) return;
 
     res.status(200);
     res.setHeader("Content-Type", "text/event-stream");
@@ -85,166 +197,139 @@ export async function postAiSuggestReply(
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    req.on("close", () => {
-      clientDisconnected = true;
-    });
-
-    const timeout = setTimeout(() => {
-      if (clientDisconnected || res.writableEnded) return;
-      res.write(
-        `event: error\ndata: ${JSON.stringify({
-          code: "AI_REQUEST_TIMEOUT",
-          message: "The AI reply request timed out.",
-        })}\n\n`
-      );
-      res.end();
-      logAiUsage({
-        feature: "suggest-reply",
-        promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
-        model: env.GEMINI_MODEL,
-        usage,
-        status: "error",
-        durationMs: Date.now() - startedAt,
-        errorCode: "AI_REQUEST_TIMEOUT",
-      });
-    }, 60_000);
-
-    let textReceived = false;
-
     for await (const event of stream) {
-      if (clientDisconnected || res.writableEnded) break;
-
-      const record = event as {
-        event_type?: string;
-        delta?: { type?: string; text?: string };
-        metadata?: {
-          total_usage?: {
-            total_input_tokens?: number;
-            total_output_tokens?: number;
-            total_thought_tokens?: number;
-            total_tokens?: number;
-          };
-        };
-        interaction?: {
-          usage?: {
-            total_input_tokens?: number;
-            total_output_tokens?: number;
-            total_thought_tokens?: number;
-            total_tokens?: number;
-          };
-        };
-        error?: unknown;
-      };
-
-      if (record.metadata?.total_usage) {
-        usage = record.metadata.total_usage;
-      }
-      if (record.interaction?.usage) {
-        usage = record.interaction.usage;
+      if (clientDisconnected || res.writableEnded) return;
+      if (!isRecord(event) || typeof event.event_type !== "string") {
+        throw new AppError(
+          502,
+          "AI_INVALID_STREAM",
+          "The AI provider returned an invalid stream."
+        );
       }
 
-      if (
-        record.event_type === "step.delta" &&
-        record.delta?.type === "text" &&
-        typeof record.delta.text === "string"
-      ) {
-        if (record.delta.text.length > 0) {
-          textReceived = true;
-          res.write(
-            `event: delta\ndata: ${JSON.stringify({
-              text: record.delta.text,
-            })}\n\n`
+      const eventUsage = getProviderUsage(event);
+      if (eventUsage) usage = eventUsage;
+
+      if (event.event_type === "step.delta") {
+        if (!isRecord(event.delta)) {
+          throw new AppError(
+            502,
+            "AI_INVALID_STREAM",
+            "The AI provider returned an invalid stream delta."
           );
         }
-      }
 
-      if (record.event_type === "error") {
-        clearTimeout(timeout);
-        const code = getSafeProviderErrorCode(record.error);
-        res.write(
-          `event: error\ndata: ${JSON.stringify({
-            code,
-            message: code === "AI_QUOTA_EXHAUSTED"
-              ? "The AI service quota is temporarily exhausted."
-              : "The AI service is temporarily unavailable.",
-          })}\n\n`
-        );
+        if (event.delta.type === "thought_signature") {
+          if (
+            event.delta.signature !== undefined &&
+            typeof event.delta.signature !== "string"
+          ) {
+            throw new AppError(
+              502,
+              "AI_INVALID_STREAM",
+              "The AI provider returned invalid stream metadata."
+            );
+          }
+          continue;
+        }
+
+        if (
+          event.delta.type !== "text" ||
+          typeof event.delta.text !== "string" ||
+          event.delta.text.length > AI_LIMITS.maxDeltaChars
+        ) {
+          throw new AppError(
+            502,
+            "AI_INVALID_STREAM",
+            "The AI provider returned an invalid text chunk."
+          );
+        }
+
+        providerText += event.delta.text;
+        if (providerText.length > AI_LIMITS.maxReplyChars) {
+          throw new AppError(
+            502,
+            "AI_OUTPUT_TOO_LONG",
+            "The AI provider returned an oversized draft."
+          );
+        }
+
+        textReceived ||= event.delta.text.length > 0;
+        const { safeText, safePrefixLength } = getSafeStreamPrefix(providerText);
+        if (safePrefixLength > sentSafeTextLength) {
+          writeSse(res, "delta", {
+            text: safeText.slice(sentSafeTextLength, safePrefixLength),
+          });
+          sentSafeTextLength = safePrefixLength;
+        }
+      } else if (event.event_type === "error") {
+        const code = getSafeProviderErrorCode(event.error);
+        abortController.abort();
+        writeSseFailure(res, code);
+        logStreamFailure(startedAt, usage, code);
+        return;
+      } else if (event.event_type === "interaction.completed") {
+        streamCompleted = true;
+        if (!textReceived) {
+          writeSseFailure(res, "AI_EMPTY_OUTPUT");
+          logStreamFailure(startedAt, usage, "AI_EMPTY_OUTPUT");
+          return;
+        }
+
+        const { safeText } = getSafeStreamPrefix(providerText);
+        const remainingText = safeText.slice(sentSafeTextLength);
+        if (remainingText) writeSse(res, "delta", { text: remainingText });
+        writeSse(res, "complete", {
+          promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
+        });
+        if (!res.writableEnded) res.end();
         logAiUsage({
           feature: "suggest-reply",
           promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
           model: env.GEMINI_MODEL,
           usage,
-          status: "error",
+          status: "success",
           durationMs: Date.now() - startedAt,
-          errorCode: code,
         });
-        res.end();
         return;
-      }
-
-      if (record.event_type === "interaction.completed") {
-        clearTimeout(timeout);
-        if (!textReceived) {
-          res.write(
-            `event: error\ndata: ${JSON.stringify({
-              code: "AI_EMPTY_OUTPUT",
-              message: "The AI provider returned an empty draft.",
-            })}\n\n`
-          );
-          logAiUsage({
-            feature: "suggest-reply",
-            promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
-            model: env.GEMINI_MODEL,
-            usage,
-            status: "error",
-            durationMs: Date.now() - startedAt,
-            errorCode: "AI_EMPTY_OUTPUT",
-          });
-        } else {
-          res.write(
-            `event: complete\ndata: ${JSON.stringify({
-              promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
-            })}\n\n`
-          );
-          logAiUsage({
-            feature: "suggest-reply",
-            promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
-            model: env.GEMINI_MODEL,
-            usage,
-            status: "success",
-            durationMs: Date.now() - startedAt,
-          });
-        }
-        res.end();
       }
     }
 
-    clearTimeout(timeout);
+    if (!clientDisconnected && !res.writableEnded && !streamCompleted) {
+      const code = requestTimedOut
+        ? "AI_REQUEST_TIMEOUT"
+        : "AI_STREAM_INTERRUPTED";
+      writeSseFailure(res, code);
+      logStreamFailure(startedAt, usage, code);
+    }
   } catch (error) {
+    if (clientDisconnected) return;
+
+    const code = requestTimedOut
+      ? "AI_REQUEST_TIMEOUT"
+      : error instanceof AppError
+        ? error.code
+        : getSafeProviderErrorCode(error);
+
     if (res.headersSent) {
-      res.write(
-        `event: error\ndata: ${JSON.stringify({
-          code: getSafeProviderErrorCode(error),
-          message: "The AI service is temporarily unavailable.",
-        })}\n\n`
-      );
-      res.end();
-      logAiUsage({
-        feature: "suggest-reply",
-        promptVersion: SUGGEST_REPLY_PROMPT_VERSION,
-        model: env.GEMINI_MODEL,
-        usage,
-        status: "error",
-        durationMs: Date.now() - startedAt,
-        errorCode: getSafeProviderErrorCode(error),
-      });
+      writeSseFailure(res, code);
+      logStreamFailure(startedAt, usage, code);
       return;
     }
 
     next(
-      error instanceof AppError
-        ? error
-        : mapProviderError(error)
+      requestTimedOut
+        ? new AppError(
+            504,
+            code,
+            "The AI request timed out. Please try again."
+          )
+        : error instanceof AppError
+          ? error
+          : mapProviderError(error)
     );
+  } finally {
+    clearTimeout(timeout);
+    res.off("close", handleClose);
   }
 }

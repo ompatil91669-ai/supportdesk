@@ -18,6 +18,7 @@ import {
 } from "../controllers/ai.controller";
 
 import { requireAuth, requireRole } from "../middleware/auth.middleware";
+import { aiRateLimiter } from "../middleware/aiRateLimiter";
 import { Role } from "database";
 
 const router = Router();
@@ -33,11 +34,13 @@ router.patch("/:id", patchTicket);
 router.post(
   "/:id/ai/suggest-reply",
   requireRole(Role.Agent, Role.Admin),
+  aiRateLimiter,
   postAiSuggestReply
 );
 router.post(
   "/:id/ai/categorise",
   requireRole(Role.Agent, Role.Admin),
+  aiRateLimiter,
   postAiCategorise
 );
 
