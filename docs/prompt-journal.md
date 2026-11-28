@@ -372,3 +372,53 @@ provider tests, and do not configure or expose the API key during chat."
 - Provider calls are mocked in automated tests.
 - No live request or key configuration was performed until the user supplied
   approval and local setup instructions.
+
+## Entry 17: AI Guardrails, Security Testing and Evaluation
+
+**Date:** 27 November 2026
+
+**Context:** Completing Day 17 guardrails and reporting the supplied manual
+security observations and live categorisation results without changing
+protected configuration or rerunning the Gemini evaluation.
+
+**Implementation and Structured Debugging:**
+- Limited ticket context, restricted it to recent public comments, masked
+  common PII and credentials, and framed ticket text as untrusted JSON.
+- Added versioned prompts, Gemini moderation settings, strict Zod
+  categorisation validation, bounded SSE output, per-user limits, provider
+  timeouts, cancellation, and the exact manual fallback.
+- Investigated `AI_INVALID_STREAM`: the installed SDK emits a typed
+  `thought_signature` delta, which was rejected by the text-only stream
+  validator. The controller now validates and discards that metadata without
+  logging or forwarding it, while retaining strict text and output limits.
+- Resolved `ERR_ERL_KEY_GEN_IPV6` by using `ipKeyGenerator` for unauthenticated
+  IP fallback keys. Authenticated requests continue to be keyed by user ID.
+- The 10 synthetic malicious scenarios and 20 labelled tickets are present in
+  the project fixtures. Manual browser observations and the supplied live
+  evaluation are documented in the Day 17 reports; fixture/payload differences
+  are called out instead of being treated as exact fixture executions.
+
+**Manual and Live Evaluation Record:**
+- Manual ticket outcomes are user-reported browser observations, not
+  independently reproduced evidence. Visible output does not prove
+  provider-side masking or backend enforcement.
+- Reported categorisation evaluation: 16/20 correct, 80% overall, 0/4 Other;
+  the 80% threshold was met exactly. The script was not rerun.
+- No live Gemini calls were made during this completion.
+
+**Final Automated Verification:**
+- Backend Jest: 72 passed; 18 database integration tests skipped because
+  `TEST_DATABASE_URL` was unset; 0 failed.
+- Frontend Vitest: 45 passed; 0 failed.
+- Backend TypeScript build, frontend build, and frontend lint passed.
+- IPv6 regression tests verify per-user behavior, IPv6 subnet grouping, and
+  absence of `ERR_ERL_KEY_GEN_IPV6`.
+- Manual cancellation and controlled fallback checks remain pending.
+
+**Learning:**
+- Learned to inspect the provider SDK’s event union rather than treating every
+  non-text stream delta as malformed, and to discard only explicitly
+  recognized metadata.
+- Learned to normalize IPv6 fallback keys while retaining authenticated
+  user-based quotas, and to separate browser observations from automated and
+  provider-side evidence.

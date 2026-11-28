@@ -5,13 +5,18 @@ import * as ticketRepository from "../repositories/ticket.repository";
 import * as commentRepository from "../repositories/comment.repository";
 import { createGeminiClient } from "../ai/gemini";
 import {
+  AI_LIMITS,
+  GEMINI_SAFETY_SETTINGS,
+  maskSensitiveData,
+} from "../ai/guardrails";
+import {
   CATEGORISE_TICKET_PROMPT_VERSION,
   CATEGORISE_TICKET_SYSTEM_PROMPT,
-} from "../ai/prompts/categorise-ticket.v1";
+} from "../ai/prompts/categorise-ticket.v2";
 import {
   SUGGEST_REPLY_PROMPT_VERSION,
   SUGGEST_REPLY_SYSTEM_PROMPT,
-} from "../ai/prompts/suggest-reply.v1";
+} from "../ai/prompts/suggest-reply.v2";
 import {
   categoriseTicketResultSchema,
   CategoriseTicketResult,
@@ -42,8 +47,6 @@ export async function prepareTicketAiContext(
   ticketId: string,
   user: AiAccess
 ): Promise<TicketAiContext> {
-  await createGeminiClient();
-
   const ticket = await ticketRepository.findTicketById(ticketId, user);
   if (!ticket) {
     throw new AppError(404, "TICKET_NOT_FOUND", "Ticket not found");
@@ -59,26 +62,26 @@ export async function prepareTicketAiContext(
       (left, right) =>
         right.createdAt.getTime() - left.createdAt.getTime()
     )
-    .slice(0, 8)
+    .slice(0, AI_LIMITS.maxComments)
     .map((comment) => ({
-      content: comment.content.slice(0, 800).trim(),
+      content: maskSensitiveData(
+        comment.content.slice(0, AI_LIMITS.maxCommentChars).trim()
+      ),
       createdAt: comment.createdAt,
     }))
     .filter((comment) => comment.content.length > 0);
 
-  const name = ticket.name.trim();
-  if (name.length < 3 && publicComments.length === 0) {
+  if (publicComments.length === 0) {
     throw new AppError(
       422,
       "INSUFFICIENT_TICKET_CONTEXT",
       "There is not enough ticket context for an AI response."
     );
   }
-
   return {
     ticket: {
       id: ticket.id,
-      name,
+      name: "[REDACTED CUSTOMER NAME]",
       status: ticket.status,
       priority: ticket.priority,
     },
@@ -86,36 +89,60 @@ export async function prepareTicketAiContext(
   };
 }
 
-function formatSuggestReplyInput(context: TicketAiContext): string {
-  const comments = context.publicComments
-    .map(
-      (comment, index) =>
-        `[Public comment ${index + 1}] ${comment.content}`
-    )
-    .join("\n");
+export function formatTicketPromptInput(
+  task: "categorise" | "suggest-reply",
+  context: TicketAiContext
+): string {
+  const data = {
+    task,
+    ticket: {
+      id: context.ticket.id.slice(0, 100),
+      name: "[REDACTED CUSTOMER NAME]",
+      status: context.ticket.status,
+      priority: context.ticket.priority,
+    },
+    publicComments: context.publicComments
+      .slice(0, AI_LIMITS.maxComments)
+      .map((comment) =>
+        maskSensitiveData(
+          comment.content.slice(0, AI_LIMITS.maxCommentChars)
+        )
+      ),
+  };
+  const serialized = JSON.stringify(data);
 
-  return [
-    "Generate a draft reply for this support ticket.",
-    `[Ticket ID] ${context.ticket.id}`,
-    `[Ticket name] ${context.ticket.name}`,
-    `[Status] ${context.ticket.status}`,
-    `[Priority] ${context.ticket.priority}`,
-    comments ? "[Recent public comments]\n" + comments : "[Recent public comments] None",
-  ].join("\n");
+  if (serialized.length > AI_LIMITS.maxContextChars) {
+    throw new AppError(
+      413,
+      "AI_CONTEXT_TOO_LARGE",
+      "The ticket context is too long to process safely."
+    );
+  }
+
+  return `UNTRUSTED_TICKET_JSON\n${serialized}`;
 }
 
 export async function createSuggestReplyStream(
-  context: TicketAiContext
+  context: TicketAiContext,
+  abortSignal?: AbortSignal
 ) {
   const startedAt = Date.now();
-  const ai = await createGeminiClient();
 
   try {
+    const input = formatTicketPromptInput("suggest-reply", context);
+    const ai = await createGeminiClient();
     return await ai.interactions.create({
       model: env.GEMINI_MODEL,
       system_instruction: SUGGEST_REPLY_SYSTEM_PROMPT,
-      input: formatSuggestReplyInput(context),
+      input,
+      safety_settings: [...GEMINI_SAFETY_SETTINGS],
+      generation_config: { max_output_tokens: 1_024 },
       stream: true,
+    }, {
+      timeout_ms: 60_000,
+      ...(abortSignal
+        ? { fetch_options: { signal: abortSignal } }
+        : {}),
     });
   } catch (error) {
     logAiUsage({
@@ -131,30 +158,20 @@ export async function createSuggestReplyStream(
 }
 
 export async function categoriseTicket(
-  context: TicketAiContext
+  context: TicketAiContext,
+  abortSignal?: AbortSignal
 ): Promise<CategoriseTicketResult> {
   const startedAt = Date.now();
-  const ai = await createGeminiClient();
-  const input = [
-    "Categorise this support ticket.",
-    `[Ticket name] ${context.ticket.name}`,
-    `[Status] ${context.ticket.status}`,
-    `[Priority] ${context.ticket.priority}`,
-    context.publicComments.length
-      ? "[Recent public comments]\n" +
-        context.publicComments
-          .map((comment, index) =>
-            `[Public comment ${index + 1}] ${comment.content}`
-          )
-          .join("\n")
-      : "[Recent public comments] None",
-  ].join("\n");
+  const input = formatTicketPromptInput("categorise", context);
 
   try {
+    const ai = await createGeminiClient();
     const response = await ai.interactions.create({
       model: env.GEMINI_MODEL,
       system_instruction: CATEGORISE_TICKET_SYSTEM_PROMPT,
       input,
+      safety_settings: [...GEMINI_SAFETY_SETTINGS],
+      generation_config: { max_output_tokens: 256 },
       response_format: {
         type: "text",
         mime_type: "application/json",
@@ -175,6 +192,11 @@ export async function categoriseTicket(
         },
       },
       stream: false,
+    }, {
+      timeout_ms: 60_000,
+      ...(abortSignal
+        ? { fetch_options: { signal: abortSignal } }
+        : {}),
     });
 
     if (!("output_text" in response) || !response.output_text?.trim()) {
@@ -182,6 +204,13 @@ export async function categoriseTicket(
         502,
         "AI_EMPTY_OUTPUT",
         "The AI provider returned an empty response."
+      );
+    }
+    if (response.output_text.length > AI_LIMITS.maxCategoryOutputChars) {
+      throw new AppError(
+        502,
+        "AI_INVALID_OUTPUT",
+        "The AI provider returned an unsupported categorisation."
       );
     }
 
@@ -248,11 +277,20 @@ export function getSafeProviderErrorCode(error: unknown): string {
     code?: string | number;
     message?: string;
   };
+  const providerCode = String(candidate.code ?? "").toUpperCase();
+  const providerMessage = String(candidate.message ?? "").toUpperCase();
+  if (
+    providerCode.includes("SAFETY") ||
+    (providerMessage.includes("SAFETY") &&
+      providerMessage.includes("BLOCK"))
+  ) {
+    return "AI_SAFETY_BLOCKED";
+  }
   if (
     candidate.status === 429 ||
-    String(candidate.code).toUpperCase().includes("429") ||
-    String(candidate.code).toUpperCase().includes("RESOURCE_EXHAUSTED") ||
-    String(candidate.message).toUpperCase().includes("RESOURCE_EXHAUSTED")
+    providerCode.includes("429") ||
+    providerCode.includes("RESOURCE_EXHAUSTED") ||
+    providerMessage.includes("RESOURCE_EXHAUSTED")
   ) {
     return "AI_QUOTA_EXHAUSTED";
   }

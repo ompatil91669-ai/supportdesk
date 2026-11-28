@@ -193,11 +193,12 @@ export async function categoriseTicket(
 
 export async function suggestTicketReply(
   id: string,
-  callbacks: StreamApiCallbacks
+  callbacks: StreamApiCallbacks,
+  signal?: AbortSignal
 ): Promise<void> {
   await streamApiRequest(
     `/tickets/${encodeURIComponent(id)}/ai/suggest-reply`,
     callbacks,
-    { method: "POST" }
+    { method: "POST", signal }
   );
 }

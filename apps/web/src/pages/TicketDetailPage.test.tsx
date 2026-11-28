@@ -224,6 +224,60 @@ describe("Ticket detail page", () => {
     expect(screen.queryByRole("button", { name: "Suggest Reply" })).toBeNull();
   });
 
+  it("shows the manual fallback on reply failure without changing the comment", async () => {
+    const user = userEvent.setup();
+    setupTicketPage("Agent");
+    mockSuggestTicketReply.mockImplementation(
+      (_id: string, callbacks: { onError: (code: string, message: string) => void }) => {
+        callbacks.onError("AI_PROVIDER_ERROR", "Raw provider error");
+        return Promise.resolve();
+      }
+    );
+    renderTicketDetail();
+
+    const comment = screen.getByLabelText("Add a comment") as HTMLTextAreaElement;
+    await user.type(comment, "Keep this manually written reply.");
+    await user.click(screen.getByRole("button", { name: "Suggest Reply" }));
+
+    expect(
+      await screen.findByText("AI unavailable — reply manually.")
+    ).toBeTruthy();
+    expect(comment.value).toBe("Keep this manually written reply.");
+    expect(mockAddComment).not.toHaveBeenCalled();
+  });
+
+  it("cancels reply generation without submitting the manual comment", async () => {
+    const user = userEvent.setup();
+    setupTicketPage("Agent");
+    let requestSignal: AbortSignal | undefined;
+    mockSuggestTicketReply.mockImplementation(
+      (
+        _id: string,
+        callbacks: { onInterrupted: () => void },
+        signal?: AbortSignal
+      ) => {
+        requestSignal = signal;
+        signal?.addEventListener("abort", callbacks.onInterrupted, {
+          once: true,
+        });
+        return Promise.resolve();
+      }
+    );
+    renderTicketDetail();
+
+    const comment = screen.getByLabelText("Add a comment") as HTMLTextAreaElement;
+    await user.type(comment, "Keep this manually written reply.");
+    await user.click(screen.getByRole("button", { name: "Suggest Reply" }));
+    await user.click(screen.getByRole("button", { name: "Cancel generation" }));
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(
+      await screen.findByText("AI unavailable — reply manually.")
+    ).toBeTruthy();
+    expect(comment.value).toBe("Keep this manually written reply.");
+    expect(mockAddComment).not.toHaveBeenCalled();
+  });
+
   it("displays categorisation suggestions without changing ticket data", async () => {
     const user = userEvent.setup();
     setupTicketPage("Agent");

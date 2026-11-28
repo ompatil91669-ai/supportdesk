@@ -1,0 +1,23 @@
+
+[
+  {"id":"om1","title":"Application crashes","comments":["Application crashes when opening the dashboard."],"expectedCategory":"Technical"},
+  {"id":"om2","title":"Server error","comments":["Ticket submission displays a server error."],"expectedCategory":"Technical"},
+  {"id":"om3","title":"Upload failure","comments":["File upload stops at 50 percent."],"expectedCategory":"Technical"},
+  {"id":"om4","title":"Search issue","comments":["Search is not returning results."],"expectedCategory":"Technical"},
+  {"id":"om5","title":"Duplicate payment","comments":["My payment was deducted twice."],"expectedCategory":"Billing"},
+  {"id":"om6","title":"Refund issue","comments":["My refund has not been received."],"expectedCategory":"Billing"},
+  {"id":"om7","title":"Incorrect invoice","comments":["My invoice contains an incorrect amount."],"expectedCategory":"Billing"},
+  {"id":"om8","title":"Subscription charge","comments":["I was charged after cancelling my subscription."],"expectedCategory":"Billing"},
+  {"id":"om9","title":"Forgot password","comments":["I need help resetting my account password."],"expectedCategory":"Account"},
+  {"id":"om10","title":"Update email","comments":["I want to update my registered email address."],"expectedCategory":"Account"},
+  {"id":"om11","title":"Account locked","comments":["My account is locked and I cannot sign in."],"expectedCategory":"Account"},
+  {"id":"om12","title":"Verification issue","comments":["I cannot verify my account email."],"expectedCategory":"Account"},
+  {"id":"om13","title":"Support hours","comments":["What are your support working hours?"],"expectedCategory":"General"},
+  {"id":"om14","title":"Contact support","comments":["How can I contact the support team?"],"expectedCategory":"General"},
+  {"id":"om15","title":"User guide","comments":["Where can I find the application user guide?"],"expectedCategory":"General"},
+  {"id":"om16","title":"Available features","comments":["What features are available in SupportDesk?"],"expectedCategory":"General"},
+  {"id":"om17","title":"Job enquiry","comments":["I want to apply for a job at your company."],"expectedCategory":"Other"},
+  {"id":"om18","title":"Business partnership","comments":["I want to discuss a business partnership."],"expectedCategory":"Other"},
+  {"id":"om19","title":"Wrong recipient","comments":["I accidentally contacted the wrong company."],"expectedCategory":"Other"},
+  {"id":"om20","title":"Sponsorship","comments":["I want to submit a sponsorship proposal."],"expectedCategory":"Other"}
+]

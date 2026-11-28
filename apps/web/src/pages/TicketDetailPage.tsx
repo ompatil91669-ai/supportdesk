@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import Badge from "../components/Badge";
 import type { BadgeVariant } from "../components/Badge";
@@ -30,6 +30,7 @@ const priorityBadgeVariant = {
   Medium: "medium",
   High: "high",
 } as const;
+const AI_MANUAL_FALLBACK_MESSAGE = "AI unavailable — reply manually.";
 
 export default function TicketDetailPage() {
   const { id = "" } = useParams();
@@ -57,11 +58,19 @@ export default function TicketDetailPage() {
     "idle" | "loading" | "error"
   >("idle");
   const [aiSuggestionError, setAiSuggestionError] = useState("");
+  const aiAbortController = useRef<AbortController | null>(null);
   const ticket = ticketQuery.data;
   const comments = commentsQuery.data ?? [];
   const visibleComments = isStaff
     ? comments
     : comments.filter((comment) => !comment.isInternal);
+
+  useEffect(
+    () => () => {
+      aiAbortController.current?.abort();
+    },
+    []
+  );
 
   function generateDraftReply() {
     if (aiDraftStatus === "loading") return;
@@ -69,16 +78,30 @@ export default function TicketDetailPage() {
     setAiDraft("");
     setAiDraftError("");
     setAiDraftStatus("loading");
+    const controller = new AbortController();
+    aiAbortController.current = controller;
 
     void suggestTicketReply(id, {
       onDelta: (text) => setAiDraft((current) => current + text),
-      onComplete: () => setAiDraftStatus("complete"),
-      onError: (_code, message) => {
-        setAiDraftError(message);
+      onComplete: () => {
+        aiAbortController.current = null;
+        setAiDraftStatus("complete");
+      },
+      onError: () => {
+        aiAbortController.current = null;
+        setAiDraftError(AI_MANUAL_FALLBACK_MESSAGE);
         setAiDraftStatus("error");
       },
-      onInterrupted: () => setAiDraftStatus("interrupted"),
-    });
+      onInterrupted: () => {
+        aiAbortController.current = null;
+        setAiDraftError(AI_MANUAL_FALLBACK_MESSAGE);
+        setAiDraftStatus("interrupted");
+      },
+    }, controller.signal);
+  }
+
+  function cancelDraftReply() {
+    aiAbortController.current?.abort();
   }
 
   function insertDraftReply() {
@@ -361,6 +384,15 @@ export default function TicketDetailPage() {
                     ? "Generating draft..."
                     : "Suggest Reply"}
                 </Button>
+                {aiDraftStatus === "loading" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={cancelDraftReply}
+                  >
+                    Cancel generation
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -408,7 +440,7 @@ export default function TicketDetailPage() {
                   )}
                   {aiDraftStatus === "interrupted" && (
                     <p role="alert" className="mt-2 text-sm text-amber-700">
-                      The AI stream was interrupted. Review any text received.
+                      {aiDraftError || AI_MANUAL_FALLBACK_MESSAGE}
                     </p>
                   )}
                 </div>
